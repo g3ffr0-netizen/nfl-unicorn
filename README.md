@@ -1,8 +1,8 @@
 # 🏈 Ben's Sovereign NFL Command Centre [The Unicorn Engine]
 
-Welcome to the Unicorn Engine, Ben and Jake! 
+Welcome to the Unicorn Engine, Ben!
 
-This is a custom-built, cloud-hosted analytics dashboard designed to strip away the bookmaker's margin (the "Vig") and find true mathematical value in NFL matchups. 
+This is a custom-built, cloud-hosted analytics dashboard designed to strip away the bookmaker's margin (the "Vig") and find true mathematical value in NFL matchups.
 
 ## 🚀 How to Use the Engine
 When you open the app, look at the left sidebar. You have three ways to feed data into the engine:
@@ -13,7 +13,7 @@ When you open the app, look at the left sidebar. You have three ways to feed dat
 
 ## 🧠 How the Math Works
 The engine doesn't guess. It does two things:
-* **Strips the Vig:** It takes the bookie's odds, converts them to implied probability, and normalizes them so they equal 100%. This gives you the *true* market probability.
+* **Strips the Vig:** It takes the bookie's odds, converts them to implied probability, and normalizes them so they equal 100%. This gives you the true market probability.
 * **Calculates EV (Expected Value):** It compares the true market probability to the Model Probability you provide. If the engine sees a massive gap, it flags a 🔥 **VALUE BET**.
 
 ## 🚩 The Fake Favourite Flag
@@ -21,7 +21,7 @@ If a team is heavily favored by the public but the math says they are overpriced
 
 ## 🦆 The 3 Amigos
 * **The Mad Scientist (Dad):** Architect and Commander.
-* **Ben & Jake:** Gridiron Operators (Japan Deployment).
-* **Mr. Quakers / Daffy:** The Adversarial AI that runs the math and occasionally lays an egg. 
+* **Ben:** Gridiron Operator (Japan Deployment).
+* **Mr. Quakers / Daffy:** The Adversarial AI that runs the math and occasionally lays an egg.
 
 *Built with Python, Streamlit, and a healthy disrespect for the bookies.*
