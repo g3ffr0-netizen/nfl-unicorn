@@ -5,7 +5,7 @@ st.set_page_config(page_title="Rusty's Hub", page_icon="⛳", layout="wide")
 st.title("⛳ Rusty's Sovereign Caddy [v2.4 Aegis]")
 st.markdown("### Play the percentages. Strip the ego. Execute the plan.")
 
-tab1, tab2 = st.tabs(["🏌️‍♂️ The Mental Caddy", "🛠️ The Shoomozzle Solver"])
+tab1, tab2 = st.tabs(["🏌️‍♂️ The Mental Caddy", "🛠️ The Shroomozzle Solver"])
 
 # ==========================================
 # TAB 1: THE MENTAL CADDY
@@ -13,14 +13,26 @@ tab1, tab2 = st.tabs(["🏌️‍♂️ The Mental Caddy", "🛠️ The Shoomozz
 with tab1:
     st.sidebar.header("🏌️‍♂️ Course & Player Inputs")
     
-    # Toukley Golf Club Database
+    # CORRECTED TOUKLEY GOLF CLUB DATABASE
     TOUKLEY_COURSE = {
-        1: {"par": 4, "dist": 350}, 2: {"par": 3, "dist": 145}, 3: {"par": 5, "dist": 480},
-        4: {"par": 4, "dist": 380}, 5: {"par": 4, "dist": 390}, 6: {"par": 3, "dist": 165},
-        7: {"par": 5, "dist": 510}, 8: {"par": 4, "dist": 320}, 9: {"par": 4, "dist": 360},
-        10: {"par": 4, "dist": 375}, 11: {"par": 3, "dist": 155}, 12: {"par": 5, "dist": 495},
-        13: {"par": 4, "dist": 340}, 14: {"par": 4, "dist": 400}, 15: {"par": 3, "dist": 130},
-        16: {"par": 5, "dist": 520}, 17: {"par": 4, "dist": 370}, 18: {"par": 4, "dist": 385}
+        1: {"par": 5, "dist": 475}, 
+        2: {"par": 4, "dist": 395}, 
+        3: {"par": 4, "dist": 295},
+        4: {"par": 5, "dist": 460}, 
+        5: {"par": 4, "dist": 378}, 
+        6: {"par": 3, "dist": 179},
+        7: {"par": 4, "dist": 384}, 
+        8: {"par": 3, "dist": 135}, 
+        9: {"par": 4, "dist": 381},
+        10: {"par": 4, "dist": 350}, 
+        11: {"par": 4, "dist": 330}, 
+        12: {"par": 5, "dist": 482},
+        13: {"par": 3, "dist": 150}, 
+        14: {"par": 4, "dist": 362}, 
+        15: {"par": 5, "dist": 532},
+        16: {"par": 4, "dist": 288}, 
+        17: {"par": 3, "dist": 196}, 
+        18: {"par": 4, "dist": 370}
     }
     
     hole = st.sidebar.selectbox("Select Hole", list(TOUKLEY_COURSE.keys()))
@@ -123,8 +135,8 @@ with tab2:
     
     st.subheader("2. The Branch & File Path")
     st.write("Prevent 404 errors by matching your exact repository structure.")
-    st.code("Branch: main\\nMain file path: rusty_master.py")
+    st.code("Branch: main\nMain file path: rusty_master.py")
     
     st.subheader("3. URL Sanitization Check")
     st.write("Ensure links shared via text contain zero trailing punctuation.")
-    st.code("Correct: https://rusty-master.streamlit.app\\nIncorrect: https://rusty-master.streamlit.app).")
+    st.code("Correct: https://rusty-master.streamlit.app\nIncorrect: https://rusty-master.streamlit.app).")
