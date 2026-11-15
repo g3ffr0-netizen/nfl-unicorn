@@ -1,18 +1,15 @@
 # =====================================================================
 # APEX FILE UTILITY & BROWSER DOWNLOAD MODULE (apex_file_utility.py)
-# Save inside your repository folder
 # =====================================================================
 
 import os
 import re
-import shutil
-from datetime import datetime
 import streamlit as st
 
 def render_apex_file_utility():
     """Renders the Apex File Utility & Browser Download interface."""
     st.header("📂 Secure File Generator & Local Download Utility")
-    st.markdown("Create, edit, and download files directly to your Windows PC (`Downloads` or your workspace folder).")
+    st.markdown("Create, edit, and download files directly to your Windows PC.")
 
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -23,7 +20,7 @@ def render_apex_file_utility():
     f_content = st.text_area(
         "File Content Editor",
         height=280,
-        placeholder="Type or paste your code, patent spec, or racing telemetry data here...",
+        placeholder="Type or paste your code or data here...",
         key="apex_util_content"
     )
 
@@ -62,6 +59,3 @@ def render_apex_file_utility():
 if __name__ == "__main__":
     st.set_page_config(page_title="Apex File Utility", page_icon="📂", layout="wide")
     render_apex_file_utility()
-```[cite: 3]
-
-You can commit this directly to your [nfl-unicorn](https://github.com/g3ffr0-netizen/nfl-unicorn) GitHub repository via your [new file page](https://github.com/) or your local git terminal[cite: 3]. Let me know if you need any of the other protocol scripts, legend! ☕️💻🪿🔥
