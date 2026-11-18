@@ -179,4 +179,3 @@ with tab4:
 
 st.sidebar.markdown("---")
 st.sidebar.write("**System Status:** Fair Engine Sovereign Protection Active")
-```[cite: 3]
