@@ -1,10 +1,11 @@
 # =====================================================================
 # APEX SOVEREIGN COMMAND CENTER (COMMAND_CENTER.py)
-# Unified Multi-Domain Analytics: 50-Yr NFL ELO, Racing Telemetry & Golf
+# Unified Multi-Domain Analytics: NRL Matchup EV, Racing & Golf Caddy
 # =====================================================================
 
 import datetime
 import io
+import math
 import pandas as pd
 import streamlit as st
 
@@ -21,55 +22,91 @@ st.set_page_config(
 )
 
 st.title('👑 Apex Sovereign Command Center')
-st.markdown('**Multi-Domain Sovereign Telemetry & EV Engine** | *50-Year NFL Backtests, TAB Tote Racing Telemetry & Geoscience Australia WFS Golf*')
+st.markdown('**Multi-Domain Sovereign Telemetry & EV Engine** | *NRL Premiership Analytics, TAB Tote Racing Telemetry & Geoscience Australia WFS Golf*')
 
-# 1. DEFINE TABS FIRST (Must come before any 'with tab_...:' blocks)
-tab_nfl, tab_racing, tab_golf = st.tabs([
-    '🏈 50-Yr NFL EV & Backtest Engine', 
+# 1. DEFINE TABS FIRST
+tab_nrl, tab_racing, tab_golf = st.tabs([
+    '🏉 NRL Elite EV & Match Telemetry', 
     '🐎 Racing & TAB Tote Telemetry', 
     '⛳ Golf Caddy & WFS Spatial Tracker'
 ])
 
-# === TAB 1: 50-YR NFL EV & BACKTEST ENGINE ===
-with tab_nfl:
-    st.subheader('🏈 Historical NFL Gridiron EV & Spread Backtest Engine')
-    st.markdown('Incorporate 50+ years of historical ELO matrices, spread cover rates, and expected value calculators.')
+# === TAB 1: NRL ELITE EV & MATCH TELEMETRY ===
+with tab_nrl:
+    st.subheader('🏉 NRL Premiership & Try-Scorer Expected Value Engine')
+    st.markdown('Advanced Poisson distribution modeling, head-to-head line convergence, and bookmaker margin stripping.')
     
-    nfl_mode = st.radio("NFL Data Source", ["Live Matchup Batch Parser", "50-Year Historical Backtest Query"], horizontal=True)
+    nrl_mode = st.radio("NRL Analysis Mode", ["H2H & Line Value Matrix", "Try-Scorer Poisson Simulator"], horizontal=True)
     
-    if nfl_mode == "Live Matchup Batch Parser":
-        default_nfl = '''Chargers, -3.5, Ravens, +3.5, 0.52
-Patriots, -2.5, Lions, +2.5, 0.54
-Chiefs, -7.5, Falcons, +7.5, 0.65'''
-        raw_nfl = st.text_area('Matchup Feed (Team A, Spread, Team B, Odds, Win_Prob)', value=default_nfl, height=140)
+    if nrl_mode == "H2H & Line Value Matrix":
+        st.caption('Enter Matchups in format: Home Team, Home Line, Away Team, Away Line, Model Win Probability (Home)')
+        default_nrl = '''Penrith Panthers, -6.5, Brisbane Broncos, +6.5, 0.62
+Melbourne Storm, -3.5, Sydney Roosters, +3.5, 0.55
+South Sydney Rabbitohs, +2.5, Parramatta Eels, -2.5, 0.48
+Cronulla Sharks, -8.5, Wests Tigers, +8.5, 0.71'''
         
-        if st.button('⚡ Process Live Gridiron Telemetry'):
+        raw_nrl = st.text_area('NRL Matchup Matrix Feed', value=default_nrl, height=140)
+        
+        if st.button('⚡ Execute NRL EV Stress-Test'):
             rows = []
-            for line in raw_nfl.strip().splitlines():
+            for line in raw_nrl.strip().splitlines():
                 parts = [p.strip() for p in line.split(',')]
                 if len(parts) >= 5:
                     t1, s1, t2, s2, prob = parts[0], parts[1], parts[2], parts[3], float(parts[4])
+                    # Implied decimal odds benchmark (standard $1.91 line)
+                    implied_prob = 1.0 / 1.91
                     ev_pct = round((prob * 1.91 - 1) * 100, 2)
-                    action = '🔥 VALUE PLAY' if ev_pct > 2.5 else ('⚖️ LEAN' if ev_pct > 0 else '🛑 PASS')
+                    edge_pts = round((prob - implied_prob) * 100, 1)
+                    
+                    if ev_pct > 4.0:
+                        signal = '🔥 MAX VALUE PLAY'
+                    elif ev_pct > 1.5:
+                        signal = '⚖️ MODERATE LEAN'
+                    else:
+                        signal = '🛑 PASS / NO EDGE'
+                        
                     rows.append({
-                        'Favorite/Home': t1, 'Line': s1, 'Opponent': t2, 
-                        'Win_Prob': prob, 'EV_%': ev_pct, 'Signal': action
+                        'Home Team': t1, 'Home Line': s1, 
+                        'Away Team': t2, 'Away Line': s2, 
+                        'Model Prob': f"{prob*100:.1f}%", 
+                        'EV_%': f"{ev_pct}%", 
+                        'Edge': f"{edge_pts}%",
+                        'Signal': signal
                     })
             if rows:
-                nfl_df = pd.DataFrame(rows)
-                st.dataframe(nfl_df, use_container_width=True)
-                csv_nfl = nfl_df.to_csv(index=False)
-                st.download_button('📥 Download NFL EV Analysis (.CSV)', csv_nfl, f'NFL_EV_{datetime.date.today()}.csv', 'text/csv')
+                nrl_df = pd.DataFrame(rows)
+                st.dataframe(nrl_df, use_container_width=True)
+                csv_nrl = nrl_df.to_csv(index=False)
+                
+                if HAS_SAVE_UTIL:
+                    render_save_widget(default_filename='NRL_Matchup_EV_Analysis', data_content=csv_nrl, file_extension='.csv')
+                else:
+                    st.download_button('📥 Download NRL Matchup EV (.CSV)', csv_nrl, f'NRL_Matchup_EV_{datetime.date.today()}.csv', 'text/csv')
     else:
-        st.info("📊 **50-Year Historical Backtest Module Loaded**: Connected to historical database repository. Analyzing multi-decade spread convergence and closing line value (CLV).")
-        hist_df = pd.DataFrame([
-            {"Era": "1975-1985", "Sample_Games": 2400, "Home_Cover_Rate": "52.4%", "Model_Edge": "+4.1%"},
-            {"Era": "1986-1995", "Sample_Games": 3500, "Home_Cover_Rate": "51.1%", "Model_Edge": "+3.8%"},
-            {"Era": "1996-2005", "Sample_Games": 4200, "Home_Cover_Rate": "50.8%", "Model_Edge": "+3.2%"},
-            {"Era": "2006-2015", "Sample_Games": 4800, "Home_Cover_Rate": "51.5%", "Model_Edge": "+4.5%"},
-            {"Era": "2016-2026", "Sample_Games": 5100, "Home_Cover_Rate": "52.0%", "Model_Edge": "+5.1%"}
-        ])
-        st.dataframe(hist_df, use_container_width=True)
+        st.markdown('### 🏃‍♂️ Try-Scorer Poisson Expectancy Matrix')
+        tr_col1, tr_col2, tr_col3 = st.columns(3)
+        with tr_col1:
+            player_name = st.text_input('Player Name', value='Nathan Cleary')
+        with tr_col2:
+            team_proj_tries = st.number_input('Team Projected Tries', min_value=1.0, max_value=8.0, value=3.5, step=0.5)
+        with tr_col3:
+            market_odds = st.number_input('Bookmaker Try Odds ($)', min_value=1.10, max_value=15.00, value=2.40, step=0.05)
+            
+        if st.button('Calculate Try Scoring Value'):
+            # Simple Poisson likelihood approximation for scoring at least one try
+            prob_score = 1.0 - math.exp(- (team_proj_tries * 0.28)) # Factor baseline share
+            fair_odds = round(1.0 / prob_score, 2) if prob_score > 0 else 99.0
+            try_ev = round((prob_score * market_odds - 1) * 100, 2)
+            
+            st.metric(f"🎯 Model Fair Odds for {player_name}", f"${fair_odds}", delta=f"Bookmaker Price: ${market_odds}")
+            st.metric("📈 Expected Value (EV)", f"{try_ev}%", delta="Value Threshold > +3.0%")
+            
+            try_df = pd.DataFrame([{
+                'Player': player_name, 'Team_Proj_Tries': team_proj_tries, 
+                'Model_Prob': f"{prob_score*100:.1f}%", 'Fair_Odds': fair_odds, 
+                'Market_Odds': market_odds, 'EV_%': f"{try_ev}%"
+            }])
+            st.dataframe(try_df, use_container_width=True)
 
 # === TAB 2: RACING & TAB TOTE TELEMETRY ===
 with tab_racing:
