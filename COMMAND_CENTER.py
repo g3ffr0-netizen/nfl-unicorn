@@ -63,7 +63,7 @@ Chiefs, -7.5, Falcons, +7.5, 0.65'''
     else:
         st.info("📊 **50-Year Historical Backtest Module Loaded**: Connected to historical database repository. Analyzing multi-decade spread convergence and closing line value (CLV).")
         hist_df = pd.DataFrame([
-            {"Era": "1975-1985", "Sample_Games": 2400, "Home_Cover_Rate": "52.4%", "Model_Edge": "+4.1%றிந்த"},
+            {"Era": "1975-1985", "Sample_Games": 2400, "Home_Cover_Rate": "52.4%", "Model_Edge": "+4.1%"},
             {"Era": "1986-1995", "Sample_Games": 3500, "Home_Cover_Rate": "51.1%", "Model_Edge": "+3.8%"},
             {"Era": "1996-2005", "Sample_Games": 4200, "Home_Cover_Rate": "50.8%", "Model_Edge": "+3.2%"},
             {"Era": "2006-2015", "Sample_Games": 4800, "Home_Cover_Rate": "51.5%", "Model_Edge": "+4.5%"},
