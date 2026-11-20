@@ -1,192 +1,308 @@
-# =====================================================================
-# APEX SOVEREIGN COMMAND CENTER (COMMAND_CENTER.py)
-# Unified Multi-Domain Analytics: NRL Matchup EV, Racing & Golf Caddy
-# =====================================================================
-
-import datetime
-import io
+import os
 import math
 import pandas as pd
 import streamlit as st
-
-try:
-    from apex_save_utility import render_save_widget
-    HAS_SAVE_UTIL = True
-except ImportError:
-    HAS_SAVE_UTIL = False
+from google import genai
+from google.genai.errors import APIError
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 st.set_page_config(
-    page_title='Apex Sovereign Command Center',
-    page_icon='👑',
-    layout='wide'
+    page_title="NRL Sovereign & Fair Engine",
+    page_icon="🏉",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-st.title('👑 Apex Sovereign Command Center')
-st.markdown('**Multi-Domain Sovereign Telemetry & EV Engine** | *NRL Premiership Analytics, TAB Tote Racing Telemetry & Geoscience Australia WFS Golf*')
+# --- SECURE KEY FETCH ---
+API_KEY = ""
+try:
+    API_KEY = str(st.secrets["GEMINI_API_KEY"]).strip()
+except Exception:
+    API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 
-# 1. DEFINE TABS FIRST
-tab_nrl, tab_racing, tab_golf = st.tabs([
-    '🏉 NRL Elite EV & Match Telemetry', 
-    '🐎 Racing & TAB Tote Telemetry', 
-    '⛳ Golf Caddy & WFS Spatial Tracker'
+# ==========================================
+# 1. NRL DATA & QUANT ENGINES
+# ==========================================
+DEFAULT_MATCHES = pd.DataFrame([
+    {"Match": "Storm vs Panthers", "Home": "Storm", "Away": "Panthers", "Home_Odds": 1.85, "Away_Odds": 2.02, "Home_Exp_Pts": 21.5, "Away_Exp_Pts": 19.8, "Line_Home": -1.5, "Weather": "Dry / Calm"},
+    {"Match": "Broncos vs Roosters", "Home": "Broncos", "Away": "Roosters", "Home_Odds": 1.72, "Away_Odds": 2.20, "Home_Exp_Pts": 24.2, "Away_Exp_Pts": 20.4, "Line_Home": -3.5, "Weather": "Dry / Calm"},
+    {"Match": "Sharks vs Cowboys", "Home": "Sharks", "Away": "Cowboys", "Home_Odds": 1.64, "Away_Odds": 2.34, "Home_Exp_Pts": 25.0, "Away_Exp_Pts": 19.0, "Line_Home": -4.5, "Weather": "Light Wind"},
 ])
 
-# === TAB 1: NRL ELITE EV & MATCH TELEMETRY ===
-with tab_nrl:
-    st.subheader('🏉 NRL Premiership & Try-Scorer Expected Value Engine')
-    st.markdown('Advanced Poisson distribution modeling, head-to-head line convergence, and bookmaker margin stripping.')
-    
-    nrl_mode = st.radio("NRL Analysis Mode", ["H2H & Line Value Matrix", "Try-Scorer Poisson Simulator"], horizontal=True)
-    
-    if nrl_mode == "H2H & Line Value Matrix":
-        st.caption('Enter Matchups in format: Home Team, Home Line, Away Team, Away Line, Model Win Probability (Home)')
-        default_nrl = '''Penrith Panthers, -6.5, Brisbane Broncos, +6.5, 0.62
-Melbourne Storm, -3.5, Sydney Roosters, +3.5, 0.55
-South Sydney Rabbitohs, +2.5, Parramatta Eels, -2.5, 0.48
-Cronulla Sharks, -8.5, Wests Tigers, +8.5, 0.71'''
-        
-        raw_nrl = st.text_area('NRL Matchup Matrix Feed', value=default_nrl, height=140)
-        
-        if st.button('⚡ Execute NRL EV Stress-Test'):
-            rows = []
-            for line in raw_nrl.strip().splitlines():
-                parts = [p.strip() for p in line.split(',')]
-                if len(parts) >= 5:
-                    t1, s1, t2, s2, prob = parts[0], parts[1], parts[2], parts[3], float(parts[4])
-                    # Implied decimal odds benchmark (standard $1.91 line)
-                    implied_prob = 1.0 / 1.91
-                    ev_pct = round((prob * 1.91 - 1) * 100, 2)
-                    edge_pts = round((prob - implied_prob) * 100, 1)
-                    
-                    if ev_pct > 4.0:
-                        signal = '🔥 MAX VALUE PLAY'
-                    elif ev_pct > 1.5:
-                        signal = '⚖️ MODERATE LEAN'
-                    else:
-                        signal = '🛑 PASS / NO EDGE'
-                        
-                    rows.append({
-                        'Home Team': t1, 'Home Line': s1, 
-                        'Away Team': t2, 'Away Line': s2, 
-                        'Model Prob': f"{prob*100:.1f}%", 
-                        'EV_%': f"{ev_pct}%", 
-                        'Edge': f"{edge_pts}%",
-                        'Signal': signal
-                    })
-            if rows:
-                nrl_df = pd.DataFrame(rows)
-                st.dataframe(nrl_df, use_container_width=True)
-                csv_nrl = nrl_df.to_csv(index=False)
-                
-                if HAS_SAVE_UTIL:
-                    render_save_widget(default_filename='NRL_Matchup_EV_Analysis', data_content=csv_nrl, file_extension='.csv')
+DEFAULT_PLAYERS = pd.DataFrame([
+    {"Player": "Nathan Cleary", "Team": "Panthers", "Pos": "HFB", "Price": 945000, "Avg": 84.5, "Proj": 86.0, "BE": 78, "Base_Pts": 48.0, "Try_Share": 0.14, "ATS_Odds": 3.40, "Status": "Active", "Owned": True},
+    {"Player": "Reece Walsh", "Team": "Broncos", "Pos": "FLB", "Price": 860000, "Avg": 78.4, "Proj": 84.0, "BE": 69, "Base_Pts": 28.0, "Try_Share": 0.22, "ATS_Odds": 2.15, "Status": "Active", "Owned": True},
+    {"Player": "Tom Trbojevic", "Team": "Manly", "Pos": "FLB", "Price": 840000, "Avg": 76.0, "Proj": 79.0, "BE": 68, "Base_Pts": 31.0, "Try_Share": 0.20, "ATS_Odds": 2.30, "Status": "Active", "Owned": False},
+    {"Player": "Harry Grant", "Team": "Storm", "Pos": "HOK", "Price": 875000, "Avg": 77.8, "Proj": 80.5, "BE": 70, "Base_Pts": 54.0, "Try_Share": 0.13, "ATS_Odds": 3.30, "Status": "Active", "Owned": True},
+    {"Player": "Rookie Edge CashCow", "Team": "Storm", "Pos": "2RF", "Price": 245000, "Avg": 41.0, "Proj": 48.0, "BE": -12, "Base_Pts": 35.0, "Try_Share": 0.10, "ATS_Odds": 4.20, "Status": "Active", "Owned": True},
+])
+
+def safe_float(val, default: float = 0.0) -> float:
+    num = pd.to_numeric(val, errors="coerce")
+    if pd.isna(num) or math.isinf(float(num)):
+        return default
+    return float(num)
+
+def poisson_pmf(k: int, lam: float) -> float:
+    if lam <= 0.0:
+        return 1.0 if k == 0 else 0.0
+    log_p = k * math.log(lam) - lam - math.lgamma(k + 1)
+    return math.exp(log_p)
+
+def simulate_match_poisson(home_pts: float, away_pts: float, max_tries: int = 12):
+    h_pts = max(0.0, safe_float(home_pts, 18.0))
+    a_pts = max(0.0, safe_float(away_pts, 18.0))
+    lam_h = max(0.4, h_pts / 5.25)
+    lam_a = max(0.4, a_pts / 5.25)
+
+    p_home_win, p_away_win, p_draw = 0.0, 0.0, 0.0
+    h_probs = [poisson_pmf(h, lam_h) for h in range(max_tries + 1)]
+    a_probs = [poisson_pmf(a, lam_a) for a in range(max_tries + 1)]
+
+    for h, ph in enumerate(h_probs):
+        for a, pa in enumerate(a_probs):
+            p = ph * pa
+            if h > a:
+                p_home_win += p
+            elif a > h:
+                p_away_win += p
+            else:
+                p_draw += p
+
+    total_mass = p_home_win + p_away_win + p_draw
+    if total_mass > 0:
+        p_home_win /= total_mass
+        p_away_win /= total_mass
+        p_draw /= total_mass
+
+    p_h = max(1e-4, min(0.9999, p_home_win + 0.5 * p_draw))
+    p_a = max(1e-4, min(0.9999, p_away_win + 0.5 * p_draw))
+    return lam_h, lam_a, p_h, p_a
+
+def kelly_stake(prob: float, odds: float, bankroll: float, kelly_frac: float) -> float:
+    if bankroll <= 0.0 or kelly_frac <= 0.0 or odds <= 1.0 or prob <= 0.0 or prob >= 1.0:
+        return 0.0
+    b = odds - 1.0
+    full_k = (b * prob - (1.0 - prob)) / b
+    if full_k <= 0.0:
+        return 0.0
+    return round(bankroll * full_k * kelly_frac, 2)
+
+# ==========================================
+# 2. FAIR ENGINE AI SCOUT (With Retry + Auto-Fallback)
+# ==========================================
+AVAILABLE_MODELS = [
+    "gemini-3.8-flash",
+    "gemini-3.5-flash",
+    "gemini-3.1-pro",
+]
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=6),
+    retry=retry_if_exception_type(APIError),
+    reraise=True,
+)
+def _call_gemini(prompt: str, api_key: str, model_name: str) -> str:
+    client = genai.Client(api_key=api_key, vertexai=False)
+    response = client.models.generate_content(model=model_name, contents=prompt)
+    return response.text or "No response text returned by model."
+
+def run_ai_scout(prompt: str, api_key: str, model: str = "gemini-3.8-flash") -> str:
+    if not api_key:
+        return "⚠️ Running in Quant Mode. Add GEMINI_API_KEY to Streamlit Secrets to use the AI Scout."
+    try:
+        return _call_gemini(prompt, api_key, model)
+    except Exception as e:
+        error_msg = str(e)
+        if "404" in error_msg:
+            for fallback in ["gemini-3.5-flash", "gemini-3.8-flash"]:
+                if fallback != model:
+                    try:
+                        res = _call_gemini(prompt, api_key, fallback)
+                        return f"*(Auto-switched from `{model}` to `{fallback}`)*\n\n{res}"
+                    except Exception:
+                        pass
+            return f"🚨 **Model Not Found:** `{model}` returned 404. Switch to `gemini-3.5-flash` in the sidebar."
+        elif "429" in error_msg:
+            return "🚨 **Rate Limit Hit:** Too many requests right now. Wait a minute and try again."
+        elif "401" in error_msg or "403" in error_msg:
+            return "🚨 **Authentication Error:** Your API key is invalid or expired. Update `GEMINI_API_KEY` in Streamlit Secrets."
+        else:
+            return f"🚨 **API Error:** {error_msg}"
+
+# ==========================================
+# 3. UI LAYOUT
+# ==========================================
+st.markdown(
+    """
+    <style>
+        .hero-bar { background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #F8FAFC; border-left: 6px solid #10B981; border-radius: 12px; padding: 1rem 1.3rem; margin-bottom: 1rem; }
+        .hero-title { font-size: 1.55rem; font-weight: 800; margin: 0; }
+        .hero-sub { font-size: 0.9rem; color: #94A3B8; margin-top: 0.2rem; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <div class="hero-bar">
+        <div class="hero-title">🏉 NRL Sovereign & ⚖️ Fair Engine AI</div>
+        <div class="hero-sub">Stress-Tested Poisson Match & Try EV · Fractional Kelly Staking · Late Mail Scout</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+with st.sidebar:
+    st.header("⚙️ Settings")
+    bankroll = st.number_input("Bankroll ($)", min_value=50.0, value=1000.0, step=50.0)
+    kelly_pct = st.slider("Kelly Fraction (%)", min_value=5, max_value=50, value=10, step=5)
+    min_ev_pct = st.slider("Min +EV Filter (%)", min_value=0.0, max_value=20.0, value=3.0, step=0.5)
+
+    st.markdown("---")
+    model_choice = st.selectbox("AI Model", AVAILABLE_MODELS, index=0)
+    if not API_KEY:
+        st.caption("ℹ️ Running in Quant Mode (no API key detected).")
+
+kelly_frac = kelly_pct / 100.0
+
+tab_ai, tab_punters, tab_data = st.tabs([
+    "🤖 AI Scout (Fair Engine)",
+    "💰 NRL Punters EV Engine",
+    "📥 Live Data Editor",
+])
+
+# --- TAB 1: AI SCOUT ---
+with tab_ai:
+    st.subheader("Paste Late Mail or News Here")
+    st.caption("The Fair Engine parses late mail and flags how to adjust match points, player projections, and SuperCoach trades.")
+
+    news_text = st.text_area(
+        "News Article / Late Mail:",
+        height=200,
+        placeholder="Example: Nathan Cleary is ruled out with a hamstring injury. Reece Walsh is a confirmed starter.",
+    )
+
+    if st.button("🔍 Analyze with AI", use_container_width=True, type="primary"):
+        if not news_text.strip():
+            st.warning("Please paste some text first.")
+        else:
+            with st.spinner("Fair Engine is reading..."):
+                ai_prompt = (
+                    "You are a professional NRL betting and SuperCoach analyst. "
+                    "Read this late mail/news and give a sharp, practical breakdown of:\n"
+                    "1) Match points / H2H line impact\n"
+                    "2) Try-scorer / player projection shifts\n"
+                    "3) SuperCoach captain / trade / cash-cow impact\n\n"
+                    f"{news_text}"
+                )
+                response = run_ai_scout(ai_prompt, API_KEY, model_choice)
+                if response.startswith("🚨") or response.startswith("⚠️"):
+                    st.warning(response)
                 else:
-                    st.download_button('📥 Download NRL Matchup EV (.CSV)', csv_nrl, f'NRL_Matchup_EV_{datetime.date.today()}.csv', 'text/csv')
-    else:
-        st.markdown('### 🏃‍♂️ Try-Scorer Poisson Expectancy Matrix')
-        tr_col1, tr_col2, tr_col3 = st.columns(3)
-        with tr_col1:
-            player_name = st.text_input('Player Name', value='Nathan Cleary')
-        with tr_col2:
-            team_proj_tries = st.number_input('Team Projected Tries', min_value=1.0, max_value=8.0, value=3.5, step=0.5)
-        with tr_col3:
-            market_odds = st.number_input('Bookmaker Try Odds ($)', min_value=1.10, max_value=15.00, value=2.40, step=0.05)
-            
-        if st.button('Calculate Try Scoring Value'):
-            # Simple Poisson likelihood approximation for scoring at least one try
-            prob_score = 1.0 - math.exp(- (team_proj_tries * 0.28)) # Factor baseline share
-            fair_odds = round(1.0 / prob_score, 2) if prob_score > 0 else 99.0
-            try_ev = round((prob_score * market_odds - 1) * 100, 2)
-            
-            st.metric(f"🎯 Model Fair Odds for {player_name}", f"${fair_odds}", delta=f"Bookmaker Price: ${market_odds}")
-            st.metric("📈 Expected Value (EV)", f"{try_ev}%", delta="Value Threshold > +3.0%")
-            
-            try_df = pd.DataFrame([{
-                'Player': player_name, 'Team_Proj_Tries': team_proj_tries, 
-                'Model_Prob': f"{prob_score*100:.1f}%", 'Fair_Odds': fair_odds, 
-                'Market_Odds': market_odds, 'EV_%': f"{try_ev}%"
-            }])
-            st.dataframe(try_df, use_container_width=True)
+                    st.success("✅ Analysis Complete")
+                    st.markdown(response)
 
-# === TAB 2: RACING & TAB TOTE TELEMETRY ===
-with tab_racing:
-    st.subheader('🐎 Thoroughbred Racing & TAB Tote Fluctuation Telemetry')
-    st.markdown('Hardened EV math core, track condition weighting, barrier statistics, and tote margin removal.')
-    
-    r_col1, r_col2, r_col3 = st.columns(3)
-    with r_col1:
-        track_cond = st.selectbox('Track Condition', ['Good 4', 'Good 3', 'Soft 5', 'Soft 6', 'Heavy 8'])
-    with r_col2:
-        race_dist = st.number_input('Distance (m)', min_value=1000, max_value=3200, value=1600, step=100)
-    with r_col3:
-        venue = st.selectbox('Track Venue', ['Flemington', 'Rosehill', 'Randwick', 'Eagle Farm', 'Central Coast Circuits'])
-        
-    racing_df = pd.DataFrame([
-        {'Venue': venue, 'Runner': 'Sovereign Flame', 'Barrier': 4, 'Weight_kg': 57.5, 'Market_Odds': 2.80, 'Model_Prob': 0.41, 'Edge_%': '+14.8%'},
-        {'Venue': venue, 'Runner': 'Apex Runner', 'Barrier': 7, 'Weight_kg': 56.0, 'Market_Odds': 4.50, 'Model_Prob': 0.25, 'Edge_%': '+12.5%'},
-        {'Venue': venue, 'Runner': 'Nilovea Star', 'Barrier': 2, 'Weight_kg': 55.5, 'Market_Odds': 7.00, 'Model_Prob': 0.14, 'Edge_%': '-2.0%'}
-    ])
-    
-    st.dataframe(racing_df, use_container_width=True)
-    csv_racing = racing_df.to_csv(index=False)
-    
-    if HAS_SAVE_UTIL:
-        render_save_widget(default_filename=f'{venue}_Racing_Telemetry', data_content=csv_racing, file_extension='.csv')
-    else:
-        st.download_button('📥 Download Racing Telemetry (.CSV)', csv_racing, f'{venue}_Racing_Form_{datetime.date.today()}.csv', 'text/csv')
+# --- TAB 2: PUNTERS EV ENGINE ---
+with tab_punters:
+    matches_df = st.session_state.get("matches_df", DEFAULT_MATCHES.copy())
+    players_df = st.session_state.get("players_df", DEFAULT_PLAYERS.copy())
 
-# === TAB 3: GOLF CADDY & WFS SPATIAL TRACKER ===
-with tab_golf:
-    st.subheader('⛳ Golf Caddy & Tournament Stroke-Play Tracker (Geoscience Australia WFS Indexed)')
-    st.markdown('Live course management, wind compensation, and spatial telemetry across 1,581 Australian venues.')
-    
-    courses = {
-        "Mangrove Mountain Memorial Club & Golf Course": {
-            "Par": 72, "Standard_Yardage": 5820, "Location": "Central Mangrove NSW", "Maps_Query": "Mangrove Mountain Memorial Club & Golf Course"
-        },
-        "Howlong Golf Resort": {
-            "Par": 72, "Standard_Yardage": 6120, "Location": "Howlong NSW", "Maps_Query": "Howlong Golf Resort"
-        },
-        "Central Coast Regional Course": {
-            "Par": 71, "Standard_Yardage": 6000, "Location": "Central Coast NSW", "Maps_Query": "Central Coast NSW Golf"
-        }
-    }
-    
-    selected_course = st.selectbox("Select Indexed Course", list(courses.keys()))
-    course_info = courses[selected_course]
-    
-    col_info1, col_info2 = st.columns([2, 1])
-    with col_info1:
-        st.info(f"📍 **{selected_course}** | Location: {course_info['Location']} | Course Par: {course_info['Par']}")
-    with col_info2:
-        maps_url = f"https://www.google.com/maps/search/?api=1&query={course_info['Maps_Query'].replace(' ', '+')}"
-        st.markdown(f"[🗺️ Open in Google Maps]({maps_url})", help="View course geolocation & navigation route")
+    st.subheader("1. Match H2H & Poisson Fair Odds")
+    match_rows = []
+    team_try_rates = {}
 
-    col_h1, col_h2 = st.columns(2)
-    with col_h1:
-        current_hole = st.slider("Select Hole Number", min_value=1, max_value=18, value=1, step=1)
-    with col_h2:
-        hole_par = st.selectbox("Hole Par", [3, 4, 5], index=1)
+    for _, m in matches_df.iterrows():
+        h_odds = max(1.01, safe_float(m.get("Home_Odds"), 1.90))
+        a_odds = max(1.01, safe_float(m.get("Away_Odds"), 1.90))
+        h_pts = max(0.0, safe_float(m.get("Home_Exp_Pts"), 20.0))
+        a_pts = max(0.0, safe_float(m.get("Away_Exp_Pts"), 20.0))
 
-    g_col1, g_col2, g_col3 = st.columns(3)
-    with g_col1:
-        yardage = st.number_input('Pin Yardage (yds)', min_value=50, max_value=650, value=168)
-    with g_col2:
-        wind_mph = st.slider('Wind Speed (mph)', 0, 35, 12)
-    with g_col3:
-        wind_dir = st.selectbox('Wind Vector', ['Headwind', 'Tailwind', 'Crosswind L-to-R', 'Crosswind R-to-L'])
-        
-    adj_yards = yardage + (wind_mph * 1.2 if wind_dir == 'Headwind' else (-wind_mph * 0.8 if wind_dir == 'Tailwind' else 0))
-    st.metric(f'🎯 Adjusted Effective Yardage (Hole {current_hole} - Par {hole_par})', f'{int(round(adj_yards))} yds', delta=f'{int(round(adj_yards - yardage))} yds wind adjustment')
-    
-    golf_df = pd.DataFrame([
-        {'Course': selected_course, 'Hole': current_hole, 'Par': hole_par, 'Pin_Yards': yardage, 'Wind_MPH': wind_mph, 'Wind_Vector': wind_dir, 'Effective_Yards': int(round(adj_yards))}
-    ])
-    
-    st.dataframe(golf_df, use_container_width=True)
-    csv_golf = golf_df.to_csv(index=False)
-    
-    if HAS_SAVE_UTIL:
-        render_save_widget(default_filename=f'{selected_course.replace(" ", "_")}_Hole_{current_hole}', data_content=csv_golf, file_extension='.csv')
-    else:
-        st.download_button('📥 Download Caddy Sheet (.CSV)', csv_golf, f'Golf_Caddy_Hole_{current_hole}_{datetime.date.today()}.csv', 'text/csv')
+        lam_h, lam_a, p_h, p_a = simulate_match_poisson(h_pts, a_pts)
+        home_team = str(m.get("Home", "Home"))
+        away_team = str(m.get("Away", "Away"))
+        team_try_rates[home_team] = lam_h
+        team_try_rates[away_team] = lam_a
+
+        ev_h = (p_h * h_odds - 1.0) * 100.0
+        ev_a = (p_a * a_odds - 1.0) * 100.0
+
+        stake_h = kelly_stake(p_h, h_odds, bankroll, kelly_frac) if ev_h >= min_ev_pct else 0.0
+        stake_a = kelly_stake(p_a, a_odds, bankroll, kelly_frac) if ev_a >= min_ev_pct else 0.0
+
+        signal = "PASS"
+        if ev_h >= min_ev_pct and ev_h >= ev_a:
+            signal = f"BET {home_team} (+{ev_h:.1f}% · ${stake_h:.2f})"
+        elif ev_a >= min_ev_pct:
+            signal = f"BET {away_team} (+{ev_a:.1f}% · ${stake_a:.2f})"
+
+        match_rows.append({
+            "Match": str(m.get("Match", f"{home_team} vs {away_team}")),
+            "Fair Odds": f"{1/p_h:.2f} / {1/p_a:.2f}",
+            "Book Odds": f"{h_odds:.2f} / {a_odds:.2f}",
+            "EV % (H/A)": f"{ev_h:+.1f}% / {ev_a:+.1f}%",
+            "Action": signal,
+        })
+
+    st.dataframe(pd.DataFrame(match_rows), use_container_width=True, hide_index=True)
+
+    st.subheader("2. Try-Scorer Poisson Value & SuperCoach Watch")
+    sc_rows = []
+    for _, p in players_df.iterrows():
+        status = str(p.get("Status", "Active"))
+        if status.lower() != "active":
+            continue
+        team_name = str(p.get("Team", ""))
+        team_lam = team_try_rates.get(team_name, 3.8)
+        share = max(0.0, min(1.0, safe_float(p.get("Try_Share"), 0.12)))
+        ats_odds = max(1.01, safe_float(p.get("ATS_Odds"), 3.00))
+        proj = safe_float(p.get("Proj"), 50.0)
+        be = safe_float(p.get("BE"), 45.0)
+
+        p_lam = team_lam * share
+        p_ats = max(1e-4, min(0.9999, 1.0 - math.exp(-p_lam)))
+        fair_ats = 1.0 / p_ats
+        ev_ats = (p_ats * ats_odds - 1.0) * 100.0
+        stake_ats = kelly_stake(p_ats, ats_odds, bankroll, kelly_frac) if ev_ats >= min_ev_pct else 0.0
+
+        owned = bool(p.get("Owned", False))
+        sc_signal = ("Cash Out / Watch" if proj - be < -4 else "Hold") if owned else ("Buy / Cash Cow" if proj - be > 6 else "Pass")
+
+        sc_rows.append({
+            "Player": str(p.get("Player", "")),
+            "Team": team_name,
+            "Pos": str(p.get("Pos", "")),
+            "ATS Prob %": round(p_ats * 100.0, 1),
+            "Fair / Book ATS": f"${fair_ats:.2f} / ${ats_odds:.2f}",
+            "Try EV %": round(ev_ats, 1),
+            "Kelly ($)": stake_ats,
+            "Proj / BE": f"{proj:.1f} / {be:.0f}",
+            "SC Action": sc_signal,
+        })
+
+    if sc_rows:
+        st.dataframe(pd.DataFrame(sc_rows).sort_values(by="Try EV %", ascending=False), use_container_width=True, hide_index=True)
+
+# --- TAB 3: DATA EDITOR ---
+with tab_data:
+    st.subheader("Update Live Data")
+
+    st.markdown("**Matches & Odds**")
+    edited_matches = st.data_editor(
+        st.session_state.get("matches_df", DEFAULT_MATCHES.copy()),
+        use_container_width=True,
+        num_rows="dynamic",
+        key="ed_m",
+    )
+    st.session_state["matches_df"] = edited_matches
+
+    st.markdown("**Players & SuperCoach Pool**")
+    edited_players = st.data_editor(
+        st.session_state.get("players_df", DEFAULT_PLAYERS.copy()),
+        use_container_width=True,
+        num_rows="dynamic",
+        key="ed_p",
+    )
+    st.session_state["players_df"] = edited_players
