@@ -171,6 +171,18 @@ def kelly_fraction(prob: float, decimal_odds: float, kelly_mult: float = 0.25, m
     return float(min(max_cap, full_kelly * kelly_mult))
 
 
+def harville_exacta_prob(probs: np.ndarray, i: int, j: int) -> float:
+    """Harville probability that runner i finishes 1st and runner j finishes 2nd."""
+    if i == j:
+        return 0.0
+    p_i = probs[i]
+    p_j = probs[j]
+    denom = 1.0 - p_i
+    if p_i <= 0 or p_j <= 0 or denom <= 1e-9:
+        return 0.0
+    return float(p_i * (p_j / denom))
+
+
 def harville_trifecta_prob(probs: np.ndarray, i: int, j: int, k: int) -> float:
     """Harville probability for exact 1st=i, 2nd=j, 3rd=k finishing order."""
     if len({i, j, k}) < 3:
@@ -1208,39 +1220,4 @@ with tab_results:
 
     if not ledger_df.empty:
         tot_out = pd.to_numeric(ledger_df["Outlay"], errors="coerce").fillna(0).sum()
-        tot_ret = pd.to_numeric(ledger_df["Return"], errors="coerce").fillna(0).sum()
-        net_pl = tot_ret - tot_out
-        roi_pct = (net_pl / tot_out * 100.0) if tot_out > 0 else 0.0
-
-        s1, s2, s3 = st.columns(3)
-        s1.metric("Cumulative Outlay", f"${tot_out:.2f}")
-        s2.metric("Net Profit / Loss", f"${net_pl:+.2f}")
-        s3.metric("Cumulative ROI", f"{roi_pct:+.1f}%")
-
-        st.dataframe(ledger_df, use_container_width=True, hide_index=True)
-        st.download_button(
-            "Download `racing_live_results.csv`",
-            data=ledger_df.to_csv(index=False),
-            file_name=LIVE_RESULTS_FILE,
-            mime="text/csv",
-        )
-
-
-# ==============================================================================
-# TAB 5: SUPERFORM 12-MONTH EXPECTED RATINGS ANALYSIS (ERA) DELTA TABLE
-# ==============================================================================
-with tab_era:
-    st.subheader("12-Month Expected Ratings Analysis (ERA) Delta Matrix")
-    st.caption(
-        "Compares every historical WFA-adjusted run over the past 52 weeks against today's Predicted QTPR. "
-        "**Plus (+)** = run exceeded today's winning standard; **Minus (-)** = kg improvement required; **`*`** = within ±10% of today's distance."
-    )
-
-    e_c1, e_c2, e_c3, e_c4 = st.columns([1.2, 1.2, 1.2, 1.4])
-    fcf_input = e_c1.number_input(
-        "Final Class Figure (FCF)", min_value=30.0, max_value=80.0, value=52.0, step=0.5
-    )
-    top_jock_cut = e_c2.number_input(
-        "Top Jockey Cutoff (JocRat ≤)", min_value=0.5, max_value=3.0, value=1.5, step=0.5
-    )
-    filter_star_only = e_c3.checkbox("Show ±10% Distance Runs (*) Only", value=False)
+        tot_ret = pd
