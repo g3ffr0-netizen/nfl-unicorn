@@ -1,142 +1,181 @@
 import streamlit as st
-import math
 
-st.set_page_config(page_title="Rusty's Hub", page_icon="⛳", layout="wide")
-st.title("⛳ Rusty's Sovereign Caddy [v2.4 Aegis]")
-st.markdown("### Play the percentages. Strip the ego. Execute the plan.")
+st.set_page_config(
+    page_title="Mangrove Mountain Caddy · KISS",
+    page_icon="⛳",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
 
-tab1, tab2 = st.tabs(["🏌️‍♂️ The Mental Caddy", "🛠️ The Shroomozzle Solver"])
+st.markdown(
+    """
+    <style>
+        .block-container {
+            padding-top: 1.2rem;
+            padding-bottom: 2rem;
+            max-width: 680px;
+        }
+        .cue-banner {
+            background: #111827;
+            color: #F9FAFB;
+            border-left: 8px solid #10B981;
+            border-radius: 12px;
+            padding: 1.15rem 1.25rem;
+            margin: 0.75rem 0 1.1rem 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+        }
+        .cue-label {
+            font-size: 0.78rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #6EE7B7;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        .cue-text {
+            font-size: 1.55rem;
+            font-weight: 800;
+            line-height: 1.25;
+            letter-spacing: 0.01em;
+        }
+        .aim-box {
+            background: #F3F4F6;
+            color: #111827;
+            border-radius: 10px;
+            padding: 0.9rem 1.1rem;
+            margin-top: 0.6rem;
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-# ==========================================
-# TAB 1: THE MENTAL CADDY
-# ==========================================
-with tab1:
-    st.sidebar.header("🏌️‍♂️ Course & Player Inputs")
-    
-    # CORRECTED TOUKLEY GOLF CLUB DATABASE
-    TOUKLEY_COURSE = {
-        1: {"par": 5, "dist": 475}, 
-        2: {"par": 4, "dist": 395}, 
-        3: {"par": 4, "dist": 295},
-        4: {"par": 5, "dist": 460}, 
-        5: {"par": 4, "dist": 378}, 
-        6: {"par": 3, "dist": 179},
-        7: {"par": 4, "dist": 384}, 
-        8: {"par": 3, "dist": 135}, 
-        9: {"par": 4, "dist": 381},
-        10: {"par": 4, "dist": 350}, 
-        11: {"par": 4, "dist": 330}, 
-        12: {"par": 5, "dist": 482},
-        13: {"par": 3, "dist": 150}, 
-        14: {"par": 4, "dist": 362}, 
-        15: {"par": 5, "dist": 532},
-        16: {"par": 4, "dist": 288}, 
-        17: {"par": 3, "dist": 196}, 
-        18: {"par": 4, "dist": 370}
-    }
-    
-    hole = st.sidebar.selectbox("Select Hole", list(TOUKLEY_COURSE.keys()))
-    par = TOUKLEY_COURSE[hole]["par"]
-    distance = TOUKLEY_COURSE[hole]["dist"]
-    
-    st.sidebar.info(f"Hole {hole} is Par {par}, {distance}m")
-    
-    st.sidebar.markdown("---")
-    st.sidebar.header("🌬️ Conditions")
-    wind = st.sidebar.slider("Wind Speed (km/h)", 0, 50, 10)
-    wind_dir = st.sidebar.selectbox("Wind Direction", ["Headwind", "Tailwind", "Crosswind"])
-    
-    st.sidebar.markdown("---")
-    st.sidebar.header("🧠 Mental State")
-    pressure = st.sidebar.slider("Mental Pressure (1-10)", 1, 10, 5)
-    miss_tendency = st.sidebar.selectbox("Typical Miss", ["Straight", "Slice", "Hook"])
+MANGROVE_HOLES = [
+    {"hole": 1, "par": 4, "hcp": 5,  "white": 340, "red": 319},
+    {"hole": 2, "par": 4, "hcp": 1,  "white": 386, "red": 370},
+    {"hole": 3, "par": 4, "hcp": 9,  "white": 301, "red": 286},
+    {"hole": 4, "par": 5, "hcp": 4,  "white": 410, "red": 410},
+    {"hole": 5, "par": 3, "hcp": 15, "white": 121, "red": 121},
+    {"hole": 6, "par": 3, "hcp": 14, "white": 125, "red": 120},
+    {"hole": 7, "par": 4, "hcp": 3,  "white": 340, "red": 330},
+    {"hole": 8, "par": 3, "hcp": 11, "white": 157, "red": 157},
+    {"hole": 9, "par": 4, "hcp": 18, "white": 238, "red": 224},
+]
 
-    def calculate_effective_distance(distance, wind, direction):
-        if direction == "Headwind":
-            return distance + (wind * 1.5)
-        elif direction == "Tailwind":
-            return max(0, distance - (wind * 1.5))
-        return distance
+DEFAULT_BAG = [
+    ("Driver", 215),
+    ("3 Wood", 195),
+    ("Hybrid", 175),
+    ("5 Iron", 160),
+    ("6 Iron", 150),
+    ("7 Iron", 140),
+    ("8 Iron", 130),
+    ("9 Iron", 120),
+    ("PW", 108),
+    ("GW", 95),
+    ("SW", 80),
+]
 
-    eff_distance = calculate_effective_distance(distance, wind, wind_dir)
+st.title("⛳ Mangrove Mountain Caddy")
 
-    def get_club_and_strategy(eff_dist, pressure, miss):
-        if pressure > 7 or wind > 25:
-            club = "5-Iron or Hybrid (Safe)"
-            strategy = "Swing easy. Keep it in play. Do not try to be a hero. The engine has flagged your ego."
-            risk = "🚩 HIGH RISK - EGO DETECTED"
-        elif eff_dist > 400 and pressure <= 5:
-            club = "Driver"
-            strategy = "Pick a specific target in the fairway, not the pin. Smooth tempo."
-            risk = "🔥 VALUE PLAY (Aggressive)"
-        elif eff_dist > 200:
-            club = "5-Iron or 4-Hybrid"
-            strategy = "Smooth tempo. Let the club do the work. Aim for the center of the green."
-            risk = "🟢 STANDARD PLAY"
-        else:
-            club = "9-Iron or Wedge"
-            strategy = "Aim for the fat of the green. Take one extra club."
-            risk = "🟢 STANDARD PLAY"
+c_tee, c_hole = st.columns([1, 2])
+with c_tee:
+    tee = st.radio("Tees", ["White", "Red"], horizontal=True)
+with c_hole:
+    hole_num = st.selectbox(
+        "Hole",
+        options=[h["hole"] for h in MANGROVE_HOLES],
+        format_func=lambda n: (
+            f"Hole {n} · Par {MANGROVE_HOLES[n-1]['par']} · "
+            f"{MANGROVE_HOLES[n-1]['white' if tee == 'White' else 'red']}m (HCP {MANGROVE_HOLES[n-1]['hcp']})"
+        ),
+    )
 
-        if miss == "Slice":
-            strategy += " (Alignment: Close the clubface slightly or aim left)."
-        elif miss == "Hook":
-            strategy += " (Alignment: Open the clubface slightly or aim right)."
+hole = MANGROVE_HOLES[hole_num - 1]
+stock_m = hole["white"] if tee == "White" else hole["red"]
 
-        return club, strategy, risk
+st.markdown(
+    """
+    <div class="cue-banner">
+        <div class="cue-label">Pre-Shot Routine · Stay In The Barrel</div>
+        <div class="cue-text">HIPS, HIPS — STAY WITH THE BALL</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-    def mental_reset(pressure):
-        if pressure >= 8:
-            return "🚨 **SYSTEM OVERRIDE:** Your brain is over-aroused. Take 3 deep breaths. Look at a cloud. Step back. Do not swing until your heart rate drops."
-        elif pressure >= 5:
-            return "🟡 **MODERATE PRESSURE:** Stick to your exact pre-shot routine. Count to 3."
-        else:
-            return "🟢 **CALM STATE:** Trust your swing. Execute the plan."
+m1, m2, m3 = st.columns(3)
+m1.metric("Hole", f"#{hole['hole']}")
+m2.metric("Par / HCP", f"Par {hole['par']} · HCP {hole['hcp']}")
+m3.metric(f"{tee} Tee", f"{stock_m} m")
 
-    st.header(f"Toukley GC | Hole {hole} | Par {par}")
-    
-    col_dist1, col_dist2 = st.columns(2)
-    with col_dist1: st.metric("Actual Distance", f"{distance}m")
-    with col_dist2: st.metric("Effective Distance (Wind)", f"{int(eff_distance)}m")
+st.divider()
 
-    club, strategy, risk = get_club_and_strategy(eff_distance, pressure, miss_tendency)
-    reset = mental_reset(pressure)
+st.subheader("🔭 Rangefinder")
+r1, r2, r3 = st.columns(3)
+with r1:
+    laser_m = st.number_input(
+        "Laser (m)",
+        min_value=10,
+        max_value=600,
+        value=int(stock_m),
+        step=1,
+        key=f"laser_{hole_num}_{tee}",
+    )
+with r2:
+    slope_m = st.number_input(
+        "Slope (+/- m)",
+        min_value=-40,
+        max_value=40,
+        value=0,
+        step=1,
+        help="+ uphill (plays longer), - downhill (plays shorter)",
+    )
+with r3:
+    wind = st.selectbox(
+        "Wind",
+        ["Calm (0)", "Light Head (+5m)", "Strong Head (+12m)", "Light Tail (-5m)", "Strong Tail (-10m)"],
+    )
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric(label="Recommended Club", value=club)
-        st.info(f"**Caddy Strategy:** {strategy}")
-        
-        if "HIGH RISK" in risk:
-            st.error(risk)
-        else:
-            st.success(risk)
+wind_adj = {
+    "Calm (0)": 0,
+    "Light Head (+5m)": 5,
+    "Strong Head (+12m)": 12,
+    "Light Tail (-5m)": -5,
+    "Strong Tail (-10m)": -10,
+}[wind]
 
-    with col2:
-        st.warning(reset)
+plays_like = max(10, int(round(laser_m + slope_m + wind_adj)))
 
-    st.markdown("---")
-    st.subheader("🧘 Pre-Shot Routine Checklist")
-    st.write("☐ Stand behind the ball and pick an exact target.")
-    st.write("☐ Take one practice swing focusing *only* on smooth tempo.")
-    st.write("☐ Step in, align the clubface, and breathe out.")
-    st.write("☐ Swing. Do not try to 'hit' the ball; let the club swing.")
+with st.expander("🎒 My Club Distances (edit anytime)", expanded=False):
+    bag = []
+    cols = st.columns(3)
+    for idx, (club_name, default_dist) in enumerate(DEFAULT_BAG):
+        with cols[idx % 3]:
+            d = st.number_input(
+                f"{club_name} (m)",
+                min_value=30,
+                max_value=320,
+                value=default_dist,
+                step=1,
+                key=f"bag_{club_name}",
+            )
+            bag.append((club_name, d))
 
-# ==========================================
-# TAB 2: THE SHOO MOZZLE SOLVER
-# ==========================================
-with tab2:
-    st.header("🛠️ GitHub & Streamlit Troubleshooting")
-    st.markdown("Use this hardened checklist when deploying or sharing links with mobile users.")
-    
-    st.subheader("1. The Privacy Toggle")
-    st.write("Streamlit apps are **Private** by default. You must make them Public for mobile access.")
-    st.code("Streamlit Dashboard -> Click App -> Share (Bottom Right) -> Set to 'This app is public'")
-    
-    st.subheader("2. The Branch & File Path")
-    st.write("Prevent 404 errors by matching your exact repository structure.")
-    st.code("Branch: main\nMain file path: rusty_master.py")
-    
-    st.subheader("3. URL Sanitization Check")
-    st.write("Ensure links shared via text contain zero trailing punctuation.")
-    st.code("Correct: https://rusty-master.streamlit.app\nIncorrect: https://rusty-master.streamlit.app).")
+best_club, best_dist = min(bag, key=lambda item: abs(item[1] - plays_like))
+
+res1, res2 = st.columns(2)
+res1.metric("Plays-Like Distance", f"{plays_like} m", f"{plays_like - laser_m:+d} m adj")
+res2.metric("Suggested Club", best_club, f"Stock {best_dist} m")
+
+st.markdown(
+    """
+    <div class="aim-box">
+        🎯 <strong>Target Line:</strong> Aim <strong>left-centre</strong> to allow for your small miss right.
+        Lift arms &amp; cock wrists as one — watch the ball leave before looking up.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
