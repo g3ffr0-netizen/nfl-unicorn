@@ -3,15 +3,19 @@ import pandas as pd
 import numpy as np
 import math
 import os
+import base64
+import json
+import urllib.request
+from datetime import date
 
 st.set_page_config(
-    page_title="Ben's Sovereign NFL Command Centre | Unicorn PLE + Spreadspoke Engine",
+    page_title="Ben's Sovereign NFL Command Centre | Locked Unicorn PLE Engine",
     page_icon="🏈",
     layout="wide",
 )
 
 # =====================================================================
-# TEAM NICKNAMES, FRANCHISE HISTORY & DIVISIONS (FROM spreadspoke.R)
+# TEAM NICKNAMES, FRANCHISE HISTORY & DIVISIONS
 # =====================================================================
 SHORT_TO_FULL = {
     "Cardinals": "Arizona Cardinals", "Falcons": "Atlanta Falcons", "Ravens": "Baltimore Ravens",
@@ -67,10 +71,58 @@ TEAM_DIVISIONS = {
     "Arizona Cardinals": "NFC West", "Los Angeles Rams": "NFC West", "San Francisco 49ers": "NFC West", "Seattle Seahawks": "NFC West",
 }
 
+HIST_FILE = "spreadspoke_scores-selected-columns.csv"
+RECENT_FILE = "nfl_2025.csv"
+LIVE_LOG_FILE = "nfl_live_updates.csv"
+REQUIRED_GAME_COLS = {"team_home", "team_away", "score_home", "score_away"}
+
 def norm_team(name: str) -> str:
     s = str(name).strip()
     s = SHORT_TO_FULL.get(s, s)
     return FRANCHISE_MAP.get(s, s)
+
+# =====================================================================
+# GITHUB PERSISTENT STORAGE HELPER (LOCKS NEW DATA INTO REPO)
+# =====================================================================
+def push_csv_to_github(file_path: str, csv_content: str, commit_msg: str):
+    """Commits an updated CSV straight back into GitHub so data persists permanently across reboots."""
+    token = st.secrets.get("GITHUB_TOKEN", None) if hasattr(st, "secrets") else None
+    repo = st.secrets.get("GITHUB_REPO", "g3ffr0-netizen/nfl-unicorn") if hasattr(st, "secrets") else "g3ffr0-netizen/nfl-unicorn"
+    if not token:
+        return False, "No `GITHUB_TOKEN` found in Streamlit Secrets (saved locally to session & downloadable below)."
+
+    api_url = f"https://api.github.com/repos/{repo}/contents/{file_path}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/json",
+        "User-Agent": "Unicorn-NFL-Engine",
+    }
+
+    sha = None
+    try:
+        req_get = urllib.request.Request(api_url, headers=headers, method="GET")
+        with urllib.request.urlopen(req_get) as resp:
+            existing = json.loads(resp.read().decode("utf-8"))
+            sha = existing.get("sha")
+    except Exception:
+        sha = None  # File does not exist yet on GitHub
+
+    payload = {
+        "message": commit_msg,
+        "content": base64.b64encode(csv_content.encode("utf-8")).decode("utf-8"),
+    }
+    if sha:
+        payload["sha"] = sha
+
+    try:
+        req_put = urllib.request.Request(api_url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="PUT")
+        with urllib.request.urlopen(req_put) as resp:
+            if resp.status in (200, 201):
+                return True, f"Locked permanently into `{repo}/{file_path}` on GitHub!"
+            return False, f"GitHub API returned status {resp.status}"
+    except Exception as e:
+        return False, f"GitHub sync error: {e}"
 
 # =====================================================================
 # QUANTITATIVE MATH: ODDS, SPREAD->PROB, PLE SHRINKAGE, KELLY
@@ -82,7 +134,7 @@ def american_to_decimal(odds: float) -> float:
         return 1.0 + (odds / 100.0)
     if odds <= -100.0:
         return 1.0 + (100.0 / abs(odds))
-    return 1.909  # -110 standard
+    return 1.909
 
 def spread_to_win_prob(spread: float, std_dev: float = 13.45) -> float:
     z = -spread / std_dev
@@ -107,29 +159,58 @@ def kelly_fraction(p_hat: float, dec_odds: float, kelly_mult: float = 0.25) -> f
     return max(0.0, full_kelly * kelly_mult)
 
 # =====================================================================
-# SPREADSPOKE.R PYTHON ENGINE: ELO + 16-GAME ROLLING OFF/DEF + ATS + O/U
+# MASTER DATABASE LOADER & SPREADSPOKE ELO ENGINE
 # =====================================================================
+def load_master_games():
+    frames = []
+    if os.path.exists(HIST_FILE):
+        df_h = pd.read_csv(HIST_FILE)
+        if REQUIRED_GAME_COLS.issubset(set(df_h.columns)):
+            df_h = df_h[df_h["schedule_season"] < 2025] if "schedule_season" in df_h.columns else df_h
+            frames.append(df_h)
+
+    if os.path.exists(RECENT_FILE):
+        df_25 = pd.read_csv(RECENT_FILE)
+        if REQUIRED_GAME_COLS.issubset(set(df_25.columns)):
+            frames.append(df_25)
+    elif os.path.exists("spreadspoke_scores.csv"):
+        df_sp = pd.read_csv("spreadspoke_scores.csv")
+        if REQUIRED_GAME_COLS.issubset(set(df_sp.columns)):
+            frames.append(df_sp)
+
+    if os.path.exists(LIVE_LOG_FILE):
+        df_live = pd.read_csv(LIVE_LOG_FILE)
+        if REQUIRED_GAME_COLS.issubset(set(df_live.columns)):
+            frames.append(df_live)
+
+    if "extra_games_df" in st.session_state and not st.session_state["extra_games_df"].empty:
+        frames.append(st.session_state["extra_games_df"])
+
+    if not frames:
+        return pd.DataFrame()
+    master = pd.concat(frames, ignore_index=True)
+    master = master.dropna(subset=["team_home", "team_away", "score_home", "score_away"]).copy()
+    master["home_norm"] = master["team_home"].apply(norm_team)
+    master["away_norm"] = master["team_away"].apply(norm_team)
+    if "schedule_date" in master.columns:
+        master = master.drop_duplicates(subset=["schedule_date", "home_norm", "away_norm"], keep="last")
+    return master
+
 @st.cache_data
-def build_spreadspoke_engine(hist_df: pd.DataFrame, df_2025: pd.DataFrame = None):
-    df = hist_df.dropna(subset=["team_home", "team_away", "score_home", "score_away"]).copy()
-    df["home_norm"] = df["team_home"].apply(norm_team)
-    df["away_norm"] = df["team_away"].apply(norm_team)
+def build_spreadspoke_engine(master_df: pd.DataFrame):
+    if master_df.empty:
+        default_teams = sorted(TEAM_ID_TO_NAME.values())
+        profiles = {t: {"elo": 1500.0, "off_ppg_16": 21.0, "def_ppg_16": 21.0, "off_type": "neutral", "def_type": "neutral"} for t in default_teams}
+        ratings_df = pd.DataFrame([{"Team": t, "Elo Rating": 1500.0} for t in default_teams])
+        return profiles, ratings_df, pd.DataFrame()
 
-    # Merge full 285-game nfl_2025.csv if provided so Super Bowl LX & playoffs are included
-    if df_2025 is not None and not df_2025.empty:
-        d25 = df_2025.dropna(subset=["team_home", "team_away", "score_home", "score_away"]).copy()
-        d25["home_norm"] = d25["team_home"].apply(norm_team)
-        d25["away_norm"] = d25["team_away"].apply(norm_team)
-        df = df[df["schedule_season"] < 2025]
-        df = pd.concat([df, d25], ignore_index=True)
-
-    teams = sorted(set(df["home_norm"]).union(set(df["away_norm"])))
+    teams = sorted(set(master_df["home_norm"]).union(set(master_df["away_norm"])))
     elos = {t: 1500.0 for t in teams}
     team_history = {t: [] for t in teams}
     last_season = None
 
-    for row in df.itertuples(index=False):
-        season = int(row.schedule_season)
+    for row in master_df.itertuples(index=False):
+        season = int(row.schedule_season) if hasattr(row, "schedule_season") and pd.notna(row.schedule_season) else 2026
         if last_season is not None and season != last_season:
             for t in elos:
                 elos[t] = 1500.0 + (elos[t] - 1500.0) * 0.67
@@ -152,7 +233,6 @@ def build_spreadspoke_engine(hist_df: pd.DataFrame, df_2025: pd.DataFrame = None
         team_history[h].append((season, sh, sa))
         team_history[a].append((season, sa, sh))
 
-    # Build 16-game rolling offense/defense tiers (exact thresholds from spreadspoke.R: >24 strong, <18 weak)
     team_profiles = {}
     for t in teams:
         recent_16 = team_history[t][-16:] if len(team_history[t]) >= 16 else team_history[t]
@@ -168,21 +248,21 @@ def build_spreadspoke_engine(hist_df: pd.DataFrame, df_2025: pd.DataFrame = None
             "def_type": def_type,
         }
 
-    # 2025 Full Season Standings, ATS, and Over/Under Summary
-    d_latest = df[df["schedule_season"] == df["schedule_season"].max()].copy()
+    latest_season = master_df["schedule_season"].max() if "schedule_season" in master_df.columns else 2025
+    d_latest = master_df[master_df["schedule_season"] == latest_season].copy() if "schedule_season" in master_df.columns else master_df.tail(285).copy()
+
     stats_rows = []
     for t in teams:
         h_g = d_latest[d_latest["home_norm"] == t]
         a_g = d_latest[d_latest["away_norm"] == t]
         gp = len(h_g) + len(a_g)
         wins = (h_g["score_home"] > h_g["score_away"]).sum() + (a_g["score_away"] > a_g["score_home"]).sum()
-        pf = h_g["score_home"].sum() + a_g["score_away"].sum()
-        pa = h_g["score_away"].sum() + a_g["score_home"].sum()
 
         ats_w, ats_l, overs, unders = 0, 0, 0, 0
         for g in pd.concat([h_g, a_g]).itertuples(index=False):
-            fav_name = TEAM_ID_TO_NAME.get(str(g.team_favorite_id).strip(), "")
-            sp = float(g.spread_favorite) if pd.notna(g.spread_favorite) else 0.0
+            fav_raw = str(getattr(g, "team_favorite_id", "")).strip()
+            fav_name = TEAM_ID_TO_NAME.get(fav_raw, norm_team(fav_raw))
+            sp = float(getattr(g, "spread_favorite", 0.0)) if pd.notna(getattr(g, "spread_favorite", np.nan)) else 0.0
             margin_h = float(g.score_home) - float(g.score_away)
             cover_h = (margin_h + sp) if fav_name == g.home_norm else ((margin_h - sp) if fav_name == g.away_norm else margin_h)
             team_cover = cover_h if g.home_norm == t else -cover_h
@@ -204,9 +284,9 @@ def build_spreadspoke_engine(hist_df: pd.DataFrame, df_2025: pd.DataFrame = None
             "Team": t,
             "Division": TEAM_DIVISIONS.get(t, ""),
             "Elo Rating": round(prof["elo"], 1),
-            "2025 W-L": f"{int(wins)}-{int(gp - wins)}",
-            "2025 ATS": f"{ats_w}-{ats_l}",
-            "2025 O/U": f"{overs}-{unders}",
+            f"{int(latest_season)} W-L": f"{int(wins)}-{int(gp - wins)}",
+            f"{int(latest_season)} ATS": f"{ats_w}-{ats_l}",
+            f"{int(latest_season)} O/U": f"{overs}-{unders}",
             "L16 Off PPG": prof["off_ppg_16"],
             "L16 Def PPG": prof["def_ppg_16"],
             "Off / Def Tier": f"{prof['off_type'].title()} / {prof['def_type'].title()}",
@@ -217,23 +297,14 @@ def build_spreadspoke_engine(hist_df: pd.DataFrame, df_2025: pd.DataFrame = None
     return team_profiles, ratings_df, d_latest
 
 def predict_game_spreadspoke(
-    team_1: str,
-    team_2: str,
-    profiles: dict,
-    team_1_is_home: bool = True,
-    neutral_site: bool = False,
-    wind_mph: float = 0.0,
-    temp_f: float = 65.0,
-    is_rain_snow: bool = False,
-    rest_1: str = "Normal",
-    rest_2: str = "Normal",
+    team_1: str, team_2: str, profiles: dict, team_1_is_home: bool = True,
+    neutral_site: bool = False, wind_mph: float = 0.0, temp_f: float = 65.0,
+    is_rain_snow: bool = False, rest_1: str = "Normal", rest_2: str = "Normal",
 ):
     p1 = profiles.get(team_1, {"elo": 1500.0, "off_ppg_16": 21.0, "def_ppg_16": 21.0, "off_type": "neutral", "def_type": "neutral"})
     p2 = profiles.get(team_2, {"elo": 1500.0, "off_ppg_16": 21.0, "def_ppg_16": 21.0, "off_type": "neutral", "def_type": "neutral"})
 
-    # Division matchup dampening (divisional games play closer historically)
     div_game = (TEAM_DIVISIONS.get(team_1) == TEAM_DIVISIONS.get(team_2)) and (TEAM_DIVISIONS.get(team_1) is not None)
-
     hfa_1 = 0.0 if neutral_site else (55.0 if team_1_is_home else -55.0)
     rest_adj = (20.0 if rest_1 == "Bye Week" else (-15.0 if rest_1 == "Short Week" else 0.0)) - (
         20.0 if rest_2 == "Bye Week" else (-15.0 if rest_2 == "Short Week" else 0.0)
@@ -245,7 +316,6 @@ def predict_game_spreadspoke(
     p_win_1 = 1.0 / (1.0 + 10.0 ** (-elo_diff / 400.0))
     fair_spread_1 = -round(elo_diff / 25.0, 1)
 
-    # Exact Over/Under Total Regression Formula from spreadspoke.R
     elo_h = p1["elo"] if team_1_is_home else p2["elo"]
     elo_a = p2["elo"] if team_1_is_home else p1["elo"]
     off_h = p1["off_type"] if team_1_is_home else p2["off_type"]
@@ -262,7 +332,6 @@ def predict_game_spreadspoke(
         + (2.691029 if off_a == "strong" else (-1.176916 if off_a == "weak" else 0.0))
         + (-1.867485 if def_h == "strong" else (2.280479 if def_h == "weak" else 0.0))
     )
-    # Weather adjustments from spreadspoke.R (wind > 12 mph, cold < 36 F, rain/snow)
     if wind_mph > 12.0:
         pred_total -= (wind_mph - 12.0) * 0.25
     if temp_f < 36.0:
@@ -273,39 +342,24 @@ def predict_game_spreadspoke(
     return p_win_1, 1.0 - p_win_1, fair_spread_1, round(pred_total, 1), div_game
 
 # =====================================================================
-# LOAD REPO CSVs OR UPLOAD FALLBACK
+# BOOT ENGINE FROM LOCKED REPO DATA
 # =====================================================================
-st.sidebar.header("🦄 Unicorn Data & PLE Controls")
+master_df = load_master_games()
+profiles, ratings_df, d_latest = build_spreadspoke_engine(master_df)
 
-hist_df = pd.read_csv("spreadspoke_scores-selected-columns.csv") if os.path.exists("spreadspoke_scores-selected-columns.csv") else None
-df_2025 = pd.read_csv("nfl_2025.csv") if os.path.exists("nfl_2025.csv") else (pd.read_csv("spreadspoke_scores.csv") if os.path.exists("spreadspoke_scores.csv") else None)
-
-if hist_df is None:
-    up_hist = st.sidebar.file_uploader("Upload spreadspoke_scores-selected-columns.csv", type=["csv"])
-    if up_hist:
-        hist_df = pd.read_csv(up_hist)
-
-if df_2025 is None:
-    up_25 = st.sidebar.file_uploader("Upload nfl_2025.csv (Full 285-Game 2025 Season)", type=["csv"])
-    if up_25:
-        df_2025 = pd.read_csv(up_25)
-
-if hist_df is not None:
-    profiles, ratings_df, d_latest = build_spreadspoke_engine(hist_df, df_2025)
-    st.sidebar.success(f"✅ Trained on {len(hist_df):,} historic + {len(d_latest)} 2025 games")
+st.sidebar.header("🦄 Locked Unicorn Engine")
+if not master_df.empty:
+    st.sidebar.success(f"🔒 LOCKED DB: {len(master_df):,} NFL games loaded (1966–Latest)")
 else:
-    profiles = {t: {"elo": 1500.0, "off_ppg_16": 21.0, "def_ppg_16": 21.0, "off_type": "neutral", "def_type": "neutral"} for t in sorted(TEAM_ID_TO_NAME.values())}
-    ratings_df = pd.DataFrame([{"Team": t, "Elo Rating": 1500.0} for t in profiles])
-    d_latest = pd.DataFrame()
-    st.sidebar.warning("⚠️ Upload `spreadspoke_scores-selected-columns.csv` & `nfl_2025.csv` in sidebar.")
+    st.sidebar.warning("⚠️ Upload `spreadspoke_scores-selected-columns.csv` & `nfl_2025.csv` to GitHub repo to lock permanently.")
 
 mode = st.sidebar.radio(
     "Command Centre Mode",
     [
-        "1. Today's Slate Scanner (Spread + O/U + PLE)",
+        "1. Week Ahead Slate Scanner (Spread + O/U + PLE)",
         "2. Full Matchup Lab (Weather, Rest, ML, Spread, O/U)",
-        "3. Batch CSV Scanner (nfl_template_historical.csv)",
-        "4. 2025 Full Season Rankings, ATS & Super Bowl Log",
+        "3. Feed & Lock New Results / Weekly Data",
+        "4. Power Rankings, ATS & Historical Log",
     ],
 )
 
@@ -319,16 +373,16 @@ kelly_mult = st.sidebar.selectbox("Kelly Fraction", [0.10, 0.25, 0.50, 1.00], in
 # HEADER
 # =====================================================================
 st.title("🏈 Ben's Sovereign NFL Command Centre")
-st.caption("60-Year Margin-of-Victory Elo + Spreadspoke Rolling Offense/Defense Regression + PLE Shrinkage Engine")
+st.caption("Locked 60-Year Historical Elo + Spreadspoke Rolling Offense/Defense Engine + Persistent Data Memory")
 
 # =====================================================================
-# MODE 1: TODAY'S SLATE SCANNER (SPREAD + OVER/UNDER + PLE)
+# MODE 1: WEEK AHEAD SLATE SCANNER
 # =====================================================================
-if mode == "1. Today's Slate Scanner (Spread + O/U + PLE)":
-    st.subheader("⚡ Scan Today's NFL Slate (`Team 1, Team 2, Spread, O/U`)")
+if mode == "1. Week Ahead Slate Scanner (Spread + O/U + PLE)":
+    st.subheader("⚡ Week Ahead Slate Scanner (`Team 1, Team 2, Spread, O/U`)")
     c_up, c_home = st.columns([2, 1])
     with c_up:
-        up_txt = st.file_uploader("Upload `todays nfl games.txt` or `.csv`", type=["txt", "csv"])
+        up_txt = st.file_uploader("Drop `todays nfl games.txt` or weekly slate `.csv`", type=["txt", "csv"])
     with c_home:
         team_1_is_home = st.radio(
             "Home Team Order",
@@ -350,7 +404,7 @@ Seahawks, Raiders, -2.5, 41.5
 49ers, Cowboys, -7.5, 47.5
 Steelers, Bengals, 2.5, 46.5"""
 
-    slate_text = up_txt.read().decode("utf-8") if up_txt is not None else st.text_area("Or paste today's games:", value=default_slate, height=210)
+    slate_text = up_txt.read().decode("utf-8") if up_txt is not None else st.text_area("Or paste week ahead games:", value=default_slate, height=210)
 
     if slate_text.strip():
         rows = []
@@ -362,11 +416,13 @@ Steelers, Bengals, 2.5, 46.5"""
                 continue
             raw_t1, raw_t2 = parts[0], parts[1]
             t1, t2 = norm_team(raw_t1), norm_team(raw_t2)
-            sp1 = float(parts[2])
+            try:
+                sp1 = float(parts[2])
+            except ValueError:
+                continue
             ou_line = float(parts[3]) if len(parts) >= 4 else None
 
             _, _, fair_sp1, pred_tot, div_game = predict_game_spreadspoke(t1, t2, profiles, team_1_is_home=team_1_is_home)
-
             cover_margin_1 = (-fair_sp1) - (-sp1)
             p_raw_1 = spread_to_win_prob(-cover_margin_1)
             p_hat_1 = ple_calibrate_prob(0.50, p_raw_1, shrinkage_lambda)
@@ -408,17 +464,10 @@ Steelers, Bengals, 2.5, 46.5"""
         m1.metric("Games Scanned", len(df_out))
         m2.metric("🔥 Value Spread Bets", int(df_out["Signal"].str.contains("VALUE").sum()))
         m3.metric("Top Spread EV", f"{df_out['EV @ -110'].max():+.2f}%")
-
         st.dataframe(df_out, use_container_width=True, hide_index=True)
-        st.download_button(
-            "📥 Export Today's PLE + O/U Card (.csv)",
-            data=df_out.to_csv(index=False).encode("utf-8"),
-            file_name="bens_nfl_ple_card.csv",
-            mime="text/csv",
-        )
 
 # =====================================================================
-# MODE 2: FULL MATCHUP LAB (WEATHER, REST, ML, SPREAD, O/U)
+# MODE 2: FULL MATCHUP LAB
 # =====================================================================
 elif mode == "2. Full Matchup Lab (Weather, Rest, ML, Spread, O/U)":
     st.subheader("🔬 Full Spreadspoke + PLE Matchup Simulator")
@@ -466,40 +515,104 @@ elif mode == "2. Full Matchup Lab (Weather, Rest, ML, Spread, O/U)":
     m3.metric(f"{home_team.split()[-1]} PLE Win %", f"{p_hat_h*100:.1f}%", delta=f"Raw Model: {p_elo_h*100:.1f}%")
     m4.metric(f"{away_team.split()[-1]} PLE Win %", f"{p_hat_a*100:.1f}%", delta=f"Raw Model: {p_elo_a*100:.1f}%")
 
-    if wind_mph > 12:
-        st.warning(f"🌬️ **Spreadspoke Wind Alert ({wind_mph} mph > 12 mph):** Historical models strongly favor the **UNDER**.")
-
 # =====================================================================
-# MODE 3: BATCH CSV SCANNER
+# MODE 3: FEED & LOCK NEW RESULTS / WEEKLY DATA (PERSISTENT STORAGE)
 # =====================================================================
-elif mode == "3. Batch CSV Scanner (nfl_template_historical.csv)":
-    st.subheader("📂 Upload Historical or Weekly Slate CSV")
-    uploaded = st.file_uploader("Upload CSV", type=["csv"])
-    if uploaded:
-        df_in = pd.read_csv(uploaded)
-        df_in.columns = [c.strip().lower() for c in df_in.columns]
-        col_a_odds = "team_a_odds" if "team_a_odds" in df_in.columns else "odds_a"
-        col_b_odds = "team_b_odds" if "team_b_odds" in df_in.columns else "odds_b"
+elif mode == "3. Feed & Lock New Results / Weekly Data":
+    st.subheader("💾 Feed & Lock Completed Game Results Into Engine Memory")
+    st.markdown(
+        "Any completed games you enter or upload here are **immediately added to Elo & 16-game rolling stats** "
+        "and committed permanently to `nfl_live_updates.csv` in your GitHub repository (when `GITHUB_TOKEN` is set in Secrets)."
+    )
 
-        rows_out = []
-        for r in df_in.itertuples(index=False):
-            t_a, t_b = norm_team(getattr(r, "team_a")), norm_team(getattr(r, "team_b"))
-            val_a, val_b = float(getattr(r, col_a_odds)), float(getattr(r, col_b_odds))
-            is_spread = (-35.0 <= val_a <= 35.0) and (-35.0 <= val_b <= 35.0) and (abs(val_a + val_b) < 1.0)
-            p_elo_a, _, fair_sp, _, _ = predict_game_spreadspoke(t_a, t_b, profiles)
+    tab_quick, tab_csv = st.tabs(["✍️ Quick Paste Completed Scores", "📂 Upload CSV Batch"])
 
-            if is_spread:
-                dec_a = dec_b = 1.909
-                cover_margin_a = (-fair_sp) - (-val_a)
-                p_raw_a = spread_to_win_prob(-cover_margin_a)
-                p_hat_a = ple_calibrate_prob(0.50, p_raw_a, shrinkage_lambda)
-                p_hat_b = 1.0 - p_hat_a
-                ev_a, ev_b = (p_hat_a * 1.909) - 1.0, (p_hat_b * 1.909) - 1.0
-                line_label = f"{val_a:+.1f} / {val_b:+.1f}"
+    with tab_quick:
+        st.markdown("Format: `Date (YYYY-MM-DD), Season, Week, Home Team, Home Score, Away Score, Away Team, Fav Team, Spread, O/U`")
+        sample_new = f"{date.today()}, 2026, 1, Los Angeles Chargers, 24, 20, Baltimore Ravens, Ravens, -3.5, 45.5"
+        new_lines = st.text_area("Paste completed results:", value=sample_new, height=130)
+
+        if st.button("🔒 Lock Scores & Recalculate Engine", type="primary"):
+            new_rows = []
+            for line in new_lines.strip().splitlines():
+                parts = [p.strip() for p in line.split(",")]
+                if len(parts) < 7:
+                    continue
+                new_rows.append({
+                    "schedule_date": parts[0],
+                    "schedule_season": int(parts[1]),
+                    "schedule_week": parts[2],
+                    "schedule_playoff": False,
+                    "team_home": norm_team(parts[3]),
+                    "score_home": float(parts[4]),
+                    "score_away": float(parts[5]),
+                    "team_away": norm_team(parts[6]),
+                    "team_favorite_id": parts[7] if len(parts) >= 8 else "",
+                    "spread_favorite": float(parts[8]) if len(parts) >= 9 else 0.0,
+                    "over_under_line": float(parts[9]) if len(parts) >= 10 else np.nan,
+                    "stadium_neutral": False,
+                })
+
+            if new_rows:
+                df_added = pd.DataFrame(new_rows)
+                existing_live = pd.read_csv(LIVE_LOG_FILE) if os.path.exists(LIVE_LOG_FILE) else pd.DataFrame()
+                if "extra_games_df" in st.session_state:
+                    existing_live = pd.concat([existing_live, st.session_state["extra_games_df"]], ignore_index=True)
+
+                combined_live = pd.concat([existing_live, df_added], ignore_index=True).drop_duplicates(
+                    subset=["schedule_date", "team_home", "team_away"], keep="last"
+                )
+                st.session_state["extra_games_df"] = combined_live
+                combined_live.to_csv(LIVE_LOG_FILE, index=False)
+
+                ok, msg = push_csv_to_github(
+                    LIVE_LOG_FILE,
+                    combined_live.to_csv(index=False),
+                    f"Lock {len(df_added)} new NFL game result(s) into Unicorn Engine",
+                )
+                st.cache_data.clear()
+                if ok:
+                    st.success(f"✅ {msg}")
+                else:
+                    st.info(f"✅ Loaded into active engine! ({msg})")
+
+                st.download_button(
+                    "📥 Download Updated `nfl_live_updates.csv` Backup",
+                    data=combined_live.to_csv(index=False).encode("utf-8"),
+                    file_name=LIVE_LOG_FILE,
+                    mime="text/csv",
+                )
+
+    with tab_csv:
+        up_batch = st.file_uploader("Upload Completed Games CSV (Spreadspoke schema)", type=["csv"])
+        if up_batch is not None:
+            df_up = pd.read_csv(up_batch)
+            if not REQUIRED_GAME_COLS.issubset(set(df_up.columns)):
+                st.error(f"CSV must contain columns: {REQUIRED_GAME_COLS}")
             else:
-                dec_a, dec_b = american_to_decimal(val_a), american_to_decimal(val_b)
-                p_mkt_a, _, _ = strip_vig_two_way(dec_a, dec_b)
-                p_raw_a = float(getattr(r, "model_prob_a")) if hasattr(r, "model_prob_a") and 0 < float(getattr(r, "model_prob_a")) < 1 else p_elo_a
-                p_hat_a = ple_calibrate_prob(p_mkt_a, p_raw_a, shrinkage_lambda)
-                p_hat_b = 1.0 - p_hat_a
-                ev_a, ev_b = (p_hat_a * dec_a) - 1.0,
+                st.dataframe(df_up.head(10), use_container_width=True)
+                if st.button("🔒 Merge & Lock CSV Into Database", type="primary"):
+                    existing_live = pd.read_csv(LIVE_LOG_FILE) if os.path.exists(LIVE_LOG_FILE) else pd.DataFrame()
+                    combined_live = pd.concat([existing_live, df_up], ignore_index=True).drop_duplicates(
+                        subset=["schedule_date", "team_home", "team_away"], keep="last"
+                    )
+                    st.session_state["extra_games_df"] = combined_live
+                    combined_live.to_csv(LIVE_LOG_FILE, index=False)
+                    ok, msg = push_csv_to_github(
+                        LIVE_LOG_FILE,
+                        combined_live.to_csv(index=False),
+                        f"Merge {len(df_up)} NFL games into Unicorn Engine",
+                    )
+                    st.cache_data.clear()
+                    st.success(f"✅ Merged {len(df_up)} rows! {msg}")
+
+# =====================================================================
+# MODE 4: POWER RANKINGS & HISTORICAL LOG
+# =====================================================================
+elif mode == "4. Power Rankings, ATS & Historical Log":
+    st.subheader("📊 Locked Power Rankings, ATS & Over/Under Trends")
+    st.dataframe(ratings_df, use_container_width=True)
+    if not d_latest.empty:
+        st.subheader("🏟️ Latest Season Games Log")
+        cols_show = [c for c in ["schedule_date", "schedule_week", "team_home", "score_home", "score_away", "team_away", "team_favorite_id", "spread_favorite", "over_under_line"] if c in d_latest.columns]
+        st.dataframe(d_latest[cols_show].tail(30), use_container_width=True, hide_index=True)
