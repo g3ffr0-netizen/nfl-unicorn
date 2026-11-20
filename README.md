@@ -1,27 +1,40 @@
-# 🏈 Ben's Sovereign NFL Command Centre [The Unicorn Engine]
+# 🏈 Nebo Blokes NFL Command Centre [The Unicorn Engine]
 
-Welcome to the Unicorn Engine, Ben!
+Welcome to the **Nebo Blokes NFL Command Centre**!  
+Built on 60+ years of historical NFL data (14,239+ games from 1966–Latest), this engine strips away the bookmaker's margin (the **Vig**), applies **PLE (Posterior Likelihood Estimation) Shrinkage** to prevent overconfidence on small samples, and sizes bets automatically using **Fractional Kelly Criterion**.
 
-This is a custom-built, cloud-hosted analytics dashboard designed to strip away the bookmaker's margin (the "Vig") and find true mathematical value in NFL matchups.
+---
 
-## 🚀 How to Use the Engine
-When you open the app, look at the left sidebar. You have three ways to feed data into the engine:
+## 🧭 Command Centre Modes (Buttons 1–4)
 
-1. **Paste Raw Text (Fastest):** Copy the odds from your sportsbook and paste them in the format `Team A, -150, Team B, +130, 0.65` (Probability must be a decimal).
-2. **Manual Entry:** Use the sliders and input boxes to calculate a single matchup in real-time.
-3. **Multi-Game Batch CSV:** Upload a spreadsheet of the whole week's games to find value across the board.
+Use the **Command Centre Mode** radio buttons in the left sidebar to switch between workflows:
 
-## 🧠 How the Math Works
-The engine doesn't guess. It does two things:
-* **Strips the Vig:** It takes the bookie's odds, converts them to implied probability, and normalizes them so they equal 100%. This gives you the true market probability.
-* **Calculates EV (Expected Value):** It compares the true market probability to the Model Probability you provide. If the engine sees a massive gap, it flags a 🔥 **VALUE BET**.
+### 1. Week Ahead Slate Scanner (Spread + O/U + PLE)
+Your weekly bulk-scanning radar for finding value across the entire NFL round at once.
+* **How to use it:** Set **Home Team Order** (`Team 1 is Away` if pasting standard US *"Dolphins at Bills"* schedules, or `Team 1 is Home` if pasting Aussie *"Bills vs Dolphins"* schedules), paste your comma-separated slate (`Team 1, Team 2, Spread, O/U`), and run the scan.
+* **What it shows:** Compares the bookmaker's spread and Over/Under total against the model's fair line, flagging **🔥 VALUE BET** opportunities that clear your **Minimum EV Gate (%)** along with recommended dollar stakes.
 
-## 🚩 The Fake Favourite Flag
-If a team is heavily favored by the public but the math says they are overpriced, the engine flags them as a 🚩 **FAKE FAVOURITE**. Stay away from these traps!
+### 2. Full Matchup Lab (Weather, Rest, ML, Spread, O/U)
+A deep-dive simulator for single games where situational factors matter.
+* **How to use it:** Select the **Home Team** and **Away Team**, enter American Moneyline odds (e.g. `-180` for favourites, `+155` for underdogs) and the Sportsbook Over/Under line, then dial in **Rest Status** (Normal, Short Week, Bye Week), **Forecast Wind (mph)**, **Forecast Temp (°F)**, **Neutral Site** (for International games), and **Rain / Snow**.
+* **What it shows:** Recalculates win probability, fair spread, and total points in real time to flag Moneyline, Spread, or Totals edges—or tells you to **PASS** when the vig eats the edge.
 
-## 🦆 The 3 Amigos
-* **The Mad Scientist (Dad):** Architect and Commander.
-* **Ben:** Gridiron Operator (Japan Deployment).
-* **Mr. Quakers / Daffy:** The Adversarial AI that runs the math and occasionally lays an egg.
+### 3. Feed & Lock New Results / Weekly Data
+Keeps the engine's Elo ratings and team stats up to date after each week's games finish.
+* **How to use it:** Enter completed game scores manually or upload a weekly CSV file, then click **🔒 Lock Scores & Recalculate Engine**.
+* **How it saves:** If `GITHUB_TOKEN` is configured in Streamlit Secrets, new results commit automatically to `nfl_live_updates.csv` in your GitHub repo so they survive app reboots. Otherwise, click the **Download Updated Backup** button right underneath to save a local copy.
 
-*Built with Python, Streamlit, and a healthy disrespect for the bookies.*
+### 4. Power Rankings, ATS & Historical Log
+Your bird's-eye view of the entire league and historical database.
+* **What it shows:** Current live **Elo Power Rankings** for all 32 NFL franchises, rolling offensive/defensive efficiency metrics, Against-The-Spread (ATS) trends, and a searchable log of past games locked into the database.
+
+---
+
+## 📥📤 How to Upload & Download Data
+
+### Uploading Weekly Odds (Mode 1)
+Format each game on its own line as:
+```text
+Away Team, Home Team, Home Spread, Over/Under
+Dolphins, Bills, -16.5, 44.5
+Steelers, Eagles, 4.5, 38.5
