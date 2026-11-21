@@ -24,6 +24,7 @@ MODEL_WEIGHTS_FILE = "racing_model_weights.json"
 METRO_TRACKS_BY_STATE = {
     "NSW": [
         "Royal Randwick",
+        "Randwick-Kensington",
         "Rosehill Gardens",
         "Warwick Farm",
         "Canterbury",
@@ -32,24 +33,46 @@ METRO_TRACKS_BY_STATE = {
         "Broadmeadow (Newcastle)",
         "Kembla Grange",
         "Hawkesbury",
+        "Goulburn",
+        "Scone",
+        "Tamworth",
+        "Coffs Harbour",
+        "Grafton",
+        "Albury",
+        "Wagga",
     ],
     "VIC": [
         "Flemington",
         "Caulfield",
+        "Caulfield Heath",
         "Moonee Valley",
         "Sandown",
         "Cranbourne",
         "Pakenham",
         "Mornington",
+        "Kilmore",
         "Ballarat",
         "Bendigo",
         "Geelong",
+        "Seymour",
+        "Sale",
+        "Moe",
+        "Werribee",
+        "Wangaratta",
+        "Warrnambool",
+        "Yarra Valley",
     ],
     "QLD": [
         "Eagle Farm",
         "Doomben",
         "Sunshine Coast",
         "Gold Coast",
+        "Ipswich",
+        "Beaudesert",
+        "Toowoomba",
+        "Townsville",
+        "Cairns",
+        "Rockhampton",
     ],
     "SA": [
         "Morphettville",
@@ -71,6 +94,14 @@ METRO_TRACKS_BY_STATE = {
         "Geraldton",
         "Albany",
         "Kalgoorlie",
+    ],
+    "TAS / NT / ACT": [
+        "Hobart",
+        "Launceston",
+        "Devonport",
+        "Darwin (Fannie Bay)",
+        "Alice Springs",
+        "Canberra (Thoroughbred Park)",
     ],
 }
 
@@ -419,15 +450,20 @@ with st.sidebar:
         options=state_tracks,
         default=[state_tracks[0]],
     )
+    custom_track = st.text_input("Other / Custom Track (optional)", placeholder="e.g. Taree, Sale, Parkes")
+    track_choices = list(active_tracks) if active_tracks else list(state_tracks)
+    if custom_track.strip():
+        track_choices = [custom_track.strip()] + [t for t in track_choices if t != custom_track.strip()]
+
     target_track = st.selectbox(
         "Target Track for New Form",
-        options=active_tracks if active_tracks else state_tracks,
+        options=track_choices,
         index=0,
     )
     target_race = st.selectbox(
         "Target Race",
         options=[f"R{i}" for i in range(1, 13)],
-        index=6,
+        index=0,
     )
     st.divider()
     st.subheader("Calibrated Engine & Data")
@@ -452,7 +488,7 @@ with col_paste:
     pasted = st.text_area(
         f"Paste form text → {target_track} {target_race}",
         height=130,
-        placeholder="5. Dirtballer (6)\nW: 57.5kg\nF: 11x...",
+        placeholder="2. Somethingintheair (10)\nW: 59.5kg\nF: 43x032...",
     )
 
 incoming = pd.DataFrame()
