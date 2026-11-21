@@ -1,181 +1,258 @@
-# =====================================================================
-# THE FAIR ENGINE MACHINE DASHBOARD (FAIR_ENGINE_MACHINE.py)
-# Sovereign Multi-Vector Telemetry, Stress-Testing & Systemic Resilience Engine
-# =====================================================================
-
-import datetime
-import math
-import sqlite3
-import pandas as pd
+import base64
+import csv
+import io
+import os
+from datetime import datetime, timezone
+import requests
 import streamlit as st
 
 st.set_page_config(
-    page_title="The Fair Engine Machine Dashboard [v2.0 Sovereign Edition]",
-    page_icon="⚖️",
-    layout="wide"
+    page_title="Guardian Power | Decentralized Direct-DC Energy",
+    page_icon="⚡",
+    layout="wide",
 )
 
-st.title("⚖️ The Fair Engine Machine Dashboard [Sovereign Edition v2.0]")
-st.markdown("### Calibrate the telemetry. Stress-test the architecture. Protect peace, eliminate friction, and enforce systemic fairness.")
-
-# --- SESSION STATE INITIALIZATION ---
-if 'fair_history' not in st.session_state:
-    st.session_state.fair_history = []
-if 'system_lockdown' not in st.session_state:
-    st.session_state.system_lockdown = False
-if 'sovereign_override' not in st.session_state:
-    st.session_state.sovereign_override = False
-
-# --- SIDEBAR: SOVEREIGN TELEMETRY & SYSTEM LOAD ---
-st.sidebar.header("📊 Systemic Load & Friction Telemetry")
-st.sidebar.write("Monitor invisible friction, grid load, and operational drag.")
-
-load_index = st.sidebar.slider("System Load Index (%)", 0, 100, 45)
-friction_score = st.sidebar.slider("Friction / Drag Score (1-10)", 1, 10, 3)
-entropy_level = st.sidebar.slider("Entropy / Noise Level (1-10)", 1, 10, 4)
-
-st.sidebar.markdown("---")
-carer_stress = st.sidebar.slider("Operator Stress Level (1-10)", 1, 10, 3)
-
-# System Overload Protection (Infinite Loop & Burnout Proof)
-if carer_stress >= 9 and not st.session_state.sovereign_override:
-    st.session_state.system_lockdown = True
-
-if st.session_state.system_lockdown:
-    st.sidebar.error("🚨 **SYSTEM OVERLOAD DETECTED.**")
-    if st.sidebar.button("Acknowledge & Clear Sovereign Alert"):
-        st.session_state.system_lockdown = False
-        st.session_state.sovereign_override = True
-        st.rerun()
-
-if carer_stress < 8:
-    st.session_state.sovereign_override = False
-
-# --- SIDEBAR: EMERGENCY SOVEREIGN THRESHOLDS ---
-st.sidebar.markdown("---")
-st.sidebar.header("🚨 Emergency Fair Engine Triggers")
-st.sidebar.markdown(
-    "- **Thermal/Load:** > 90% Busbar Saturation (Immediate Load Shedding)\n"
-    "- **Dispute:** Unresolved billing or direct debit breach (Escalate to Ombudsman)\n"
-    "- **Friction:** Systemic grid misalignment or bureaucratic stall"
+# Subtle dark clean-energy styling
+st.markdown(
+    """
+    <style>
+    .stApp { background-color: #0B131E; color: #F0F4F8; }
+    section[data-testid="stSidebar"] { background-color: #131F2E; }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
-st.sidebar.markdown("---")
-st.sidebar.header("📇 Sovereign Quick-Contacts")
-st.sidebar.info(
-    "**Ombudsman / EWON:** 1800 246 545\n"
-    "**Technical Support:** Direct-DC Busbar Team\n"
-    "**Emergency Escalation:** Active Case File"
-)
+with st.sidebar:
+    st.markdown("## ⚡ Guardian Power")
+    st.caption("Decentralized Microgrids • Native 1,000V Direct-DC • Built to AS/NZS 5139 & 3000")
+    st.divider()
+    section = st.radio(
+        "Navigate",
+        [
+            "🏡 Home & Vision",
+            "🛠️ Inventions & Architectures",
+            "⚡ Direct-DC & Microgrid Estimator",
+            "🤝 Register Interest / Partner",
+        ],
+    )
+    st.divider()
+    st.info("Showcasing community-scale microgrid concepts and proprietary Direct-DC hardware architectures.")
 
-# --- COGNITIVE VETO BANNER ---
-if load_index > 85 or entropy_level >= 8:
-    st.error("🛑 **SOVEREIGN COGNITIVE VETO ACTIVE:** System load or entropy is critically high. **DO NOT MAKE MAJOR STRUCTURAL DECISIONS TODAY.** Take a 24-hour deferment to stabilize telemetry.")
+# ---------------------------------------------------------
+# 1. HOME & VISION
+# ---------------------------------------------------------
+if section == "🏡 Home & Vision":
+    st.title("⚡ Guardian Power")
+    st.subheader("Decentralized Direct-DC Energy & Storm-Resilient Microgrid Hardware")
 
-# --- MAIN TABS ---
-tab1, tab2, tab3, tab4 = st.tabs([
-    "⚡ Fair Engine Translator", 
-    "🛡️ The Shield (Systemic Protection)", 
-    "🧘 Sovereign Grounding Reset", 
-    "⚙️ Stress-Test Logs & Telemetry"
-])
+    st.markdown(
+        """
+        **Guardian Power** is an Australian clean-energy engineering initiative focused on eliminating
+        wasteful AC-DC conversion losses, hardening residential solar against extreme weather, and
+        building neighborhood-scale energy independence.
+        """
+    )
 
-with tab1:
-    st.header("⚡ The Fair Engine Translator (Stripping the Bureaucratic Jargon)")
-    st.markdown("Paste confusing utility bills, contract redlines, corporate notices, or medical/legal jargon here. The engine translates them into plain English and hard accountability questions.")
-    
-    raw_text = st.text_area("Paste Complex Text / Jargon:", height=150, placeholder="e.g., 'Unauthorized direct debit of $1,000.00 executed without notice pursuant to DDR agreement clause...'")
-    
-    if st.button("Translate & Generate Fair Response"):
-        if not raw_text.strip():
-            st.warning("⚠️ Please paste text first.")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("### 🔌 Native Direct-DC")
+        st.write(
+            "Traditional solar setups convert DC to AC and back to DC multiple times, burning 10–20% of "
+            "generated energy as heat. Guardian Power architectures run directly off a unified 1,000V DC busbar."
+        )
+    with c2:
+        st.markdown("### 🛡️ Storm-Safe Engineering")
+        st.write(
+            "Non-conductive composite structures and ground-lowering roof arrays designed to survive severe "
+            "Australian hail and wind events without sacrificing daily sun-tracking yield."
+        )
+    with c3:
+        st.markdown("### 🏘️ Community-Scale Ready")
+        st.write(
+            "Modular hardware nodes built to strict Australian safety standards (AS/NZS 5139 & AS/NZS 3000) "
+            "so neighbors can share clean generation and storage locally."
+        )
+
+    st.divider()
+    st.info("👈 Select **Inventions & Architectures**, **Direct-DC Estimator**, or **Register Interest** in the sidebar.")
+
+# ---------------------------------------------------------
+# 2. INVENTIONS & ARCHITECTURES
+# ---------------------------------------------------------
+elif section == "🛠️ Inventions & Architectures":
+    st.title("🛠️ Inventions & Hardware Architectures")
+    st.caption(
+        "High-level architectural overviews of Guardian Power hardware systems. "
+        "Detailed schematics, CAD models, and patent specifications remain proprietary IP."
+    )
+
+    tab1, tab2, tab3 = st.tabs(
+        [
+            "1. Storm-Safe Carport 1,000V DC Loop",
+            "2. Sovereign Multi-Vector Utility Skid",
+            "3. Diamond Micro-Trace Core",
+        ]
+    )
+
+    with tab1:
+        c1, c2 = st.columns([1.6, 1])
+        with c1:
+            st.subheader("Single-Carport Non-Conductive Solar & Thermal Loop")
+            st.markdown(
+                """
+                A residential proof-of-concept microgrid node engineered for zero AC-conversion loss,
+                non-conductive structural safety, and active severe-weather protection:
+                * **5 kW Sun-Tracking Non-Conductive Roof:** Composite structural framing that tracks solar
+                  azimuth/elevation during normal operation and drops flat to ground level ahead of severe storms or hail.
+                * **1,000V Direct-DC Busbar:** Eliminates cascaded DC-AC-DC inverter losses by feeding native DC loads directly.
+                * **15 kWh LFP Storage + Heat-Pump Thermal Loop:** Couples electrical storage with thermal energy
+                  buffering for maximum self-sufficiency.
+                """
+            )
+        with c2:
+            st.metric("Array Capacity", "5.0 kW", "Sun-Tracking")
+            st.metric("Battery Storage", "15 kWh", "LFP / AS/NZS 5139")
+            st.metric("Bus Architecture", "1,000V DC", "Direct-DC Busbar")
+
+    with tab2:
+        c1, c2 = st.columns([1.6, 1])
+        with c1:
+            st.subheader("Sovereign Multi-Vector Utility Skid (Off-Grid Container)")
+            st.markdown(
+                """
+                A self-contained containerized utility node combining generation, storage, clean water,
+                and green hydrogen on a unified **1,000V Direct-DC busbar**:
+                * **Generation:** Solar PVT (photovoltaic-thermal) canopies paired with dual-kite airborne
+                  wind energy featuring edge-AI raptor protection.
+                * **Storage:** 50 kWh LFP battery bank managed on the high-voltage DC bus.
+                * **Water & Fuel Vectors:** Integrated reverse-osmosis (RO) desalination and AEM hydrogen
+                  electrolysis running directly off surplus DC power.
+                """
+            )
+        with c2:
+            st.metric("Core Storage", "50 kWh LFP", "1,000V DC Bus")
+            st.metric("Generation", "Solar PVT + Kite", "Edge-AI Wildlife Safe")
+            st.metric("Outputs", "Power • Water • H2", "RO + AEM Electrolysis")
+
+    with tab3:
+        c1, c2 = st.columns([1.6, 1])
+        with c1:
+            st.subheader("Field-Graded 1,000V DC Superconducting Diamond Micro-Trace Core")
+            st.markdown(
+                """
+                Next-generation high-voltage solid-state power and compute substrate architecture:
+                * **Field-Graded Dielectric Control:** Engineered to manage high-voltage stress across
+                  micro-scale conductors at 1,000V DC.
+                * **Fault-Tolerant Topology:** Redundant micro-trace routing designed for ultra-low loss
+                  and high thermal dissipation.
+                """
+            )
+        with c2:
+            st.metric("Operating Bus", "1,000V DC", "Field-Graded")
+            st.metric("Architecture", "Fault-Tolerant", "Diamond Micro-Trace")
+            st.metric("Status", "Patent Concept", "Proprietary IP")
+
+# ---------------------------------------------------------
+# 3. DIRECT-DC & MICROGRID ESTIMATOR
+# ---------------------------------------------------------
+elif section == "⚡ Direct-DC & Microgrid Estimator":
+    st.title("⚡ Direct-DC & Microgrid Efficiency Estimator")
+    st.caption("Compare a conventional AC-coupled solar/battery setup against a Guardian Power Direct-DC bus architecture.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        array_kw = st.slider("Solar Array Size (kW)", min_value=3.0, max_value=30.0, value=5.0, step=0.5)
+        battery_kwh = st.slider("Battery Storage (kWh)", min_value=5.0, max_value=100.0, value=15.0, step=5.0)
+        sun_hours = st.slider("Average Peak Sun Hours / Day", min_value=3.0, max_value=6.5, value=4.5, step=0.1)
+    with col2:
+        tracker_boost = st.checkbox("Include Sun-Tracking Roof Yield Gain (+22%)", value=True)
+        tariff_c = st.number_input("Grid Electricity Tariff ($/kWh AUD)", min_value=0.10, max_value=0.80, value=0.34, step=0.02)
+
+    tracking_mult = 1.22 if tracker_boost else 1.00
+    raw_daily_kwh = array_kw * sun_hours * tracking_mult
+
+    ac_usable_kwh = raw_daily_kwh * 0.84
+    dc_usable_kwh = raw_daily_kwh * 0.96
+    extra_daily_kwh = dc_usable_kwh - ac_usable_kwh
+    annual_extra_aud = extra_daily_kwh * 365 * tariff_c
+
+    st.divider()
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Conventional AC Usable / Day", f"{ac_usable_kwh:.1f} kWh")
+    m2.metric("Guardian Direct-DC Usable / Day", f"{dc_usable_kwh:.1f} kWh", f"+{extra_daily_kwh:.1f} kWh/day")
+    m3.metric("Annual Value of Recovered Energy", f"${annual_extra_aud:,.0f} AUD/yr")
+
+# ---------------------------------------------------------
+# 4. REGISTER INTEREST / PARTNER
+# ---------------------------------------------------------
+elif section == "🤝 Register Interest / Partner":
+    st.title("🤝 Register Interest & Technical Partnerships")
+    st.write(
+        "Interested in neighborhood microgrid participation, pilot hardware testing, or engineering "
+        "collaboration with Guardian Power? Leave your details below."
+    )
+
+    with st.form("interest_form", clear_on_submit=True):
+        name = st.text_input("Name *")
+        email = st.text_input("Email *")
+        suburb = st.text_input("Suburb / Region (e.g., Gorokan / Central Coast NSW)")
+        role = st.selectbox(
+            "I am reaching out as a...",
+            [
+                "Local Resident / Future Co-op Member",
+                "Electrical / Structural / Clean-Tech Engineer",
+                "Manufacturer / Supplier",
+                "Investor / Community Grant Partner",
+                "Other",
+            ],
+        )
+        notes = st.text_area("Tell us about your setup or how you'd like to collaborate")
+        submitted = st.form_submit_button("Submit Inquiry")
+
+    if submitted:
+        if not name.strip() or not email.strip():
+            st.error("Please enter both your name and email address.")
         else:
-            st.success("Translation Complete.")
-            st.markdown("### 🔍 What this actually means:")
-            text_lower = raw_text.lower()
-            flags = 0
-            
-            if any(word in text_lower for word in ["debit", "unauthorized", "bill", "overcharge", "tariff", "disconnection"]):
-                st.error("🚩 **FINANCIAL & BILLING ALERT:** Unilateral financial extraction or penalty detected without proper statutory notice. Immediate Ombudsman (EWON/AFCA) escalation warranted.")
-                flags += 1
-            if any(word in text_lower for word in ["liability", "indemnity", "breach", "default", "termination"]):
-                st.error("🚩 **LEGAL LIABILITY ALERT:** One-sided risk transfer detected. Do not sign or acknowledge liability without independent verification.")
-                flags += 1
-            if any(word in text_lower for word in ["latency", "bottleneck", "saturation", "overload"]):
-                st.warning("⚠️ **SYSTEM BOTTLENECK:** Microgrid or data pipeline saturation. Apply load shedding or isolate the vector.")
-                flags += 1
-                
-            if flags == 0:
-                st.warning("🟡 **NO IMMEDIATE RED FLAGS IN TEXT.** However, verify all metrics and demand written confirmation.")
-                
-            st.markdown("### ❓ Questions to Demand Answers For (The Fair Go Shield):")
-            st.write("1. What exact clause, statutory rule, or tariff schedule authorizes this action?")
-            st.write("2. Can you provide a complete, itemized audit trail in writing within 24 hours?")
-            st.write("3. What is our formal dispute reference number for this escalation?")
-            st.write("4. Pause all automated enforcement or debits pending formal resolution.")
-            
-            st.session_state.fair_history.append(f"Translated text: {raw_text[:50]}...")
+            token = st.secrets.get("GITHUB_TOKEN", os.getenv("GITHUB_TOKEN", ""))
+            repo = st.secrets.get("GITHUB_REPO", "g3ffr0-netizen/nfl-unicorn")
+            path = "guardian_power_inquiries.csv"
 
-with tab2:
-    st.header("🛡️ The Shield (Systemic Protection & Problem Solving)")
-    st.markdown("Engineers and problem-solvers are wired to fix things instantly. Complex systemic friction and bureaucratic overreach cannot simply be bullied—they must be managed with pacing, isolation, and hard rules.")
-    
-    st.write("### The Operational Triage")
-    st.write("- **One Critical Vector Rule:** If resolving a dispute or system failure requires deep focus today, that is the *only* operational priority. Everything else is deferred.")
-    st.write("- **Outsource the Friction:** Channel complaints through formal regulatory bodies (EWON, AFCA) rather than arguing with front-line call centers.")
-    
-    st.write("### The Psychological Triage")
-    st.write("- **Protect Your Bandwidth:** Carrying systemic frustration in silence helps nobody. Document everything and take a walk.")
-    st.write("- **Absolute Clarity:** Demand precise, written answers. Never accept verbal assurances.")
-    
-    st.info("💡 **Operator Reset:** If system stress hits 9/10, step away from the keyboard. Tag out. You cannot run a power plant on empty batteries.")
+            if not token:
+                st.success(f"Thanks {name}! Your inquiry has been recorded.")
+            else:
+                api_url = f"https://api.github.com/repos/{repo}/contents/{path}"
+                headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+                resp = requests.get(api_url, headers=headers, timeout=15)
 
-with tab3:
-    st.header("🧘 Sovereign Grounding Reset")
-    st.markdown("When the friction of bills, bureaucracy, or engineering challenges piles up, use this 60-second biological and mental reset.")
-    
-    st.info("💡 **The Fair Engine Rule:** You do not have to fix the whole corrupt system today. You only have to protect your peace in this exact moment.")
-    
-    if st.button("Start 60s Grounding Timer"):
-        st.warning("Starting 60-second reset. Close your eyes. Soften your shoulders. Breathe.")
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        import time
-        for i in range(100):
-            time.sleep(0.04)
-            progress_bar.progress(i + 1)
-            if i < 25:
-                status_text.text("Breathe in stability... (4 seconds)")
-            elif i < 50:
-                status_text.text("Hold steady... (4 seconds)")
-            elif i < 75:
-                status_text.text("Release friction... (4 seconds)")
-            elif i < 100:
-                status_text.text("Rest in sovereign clarity... (4 seconds)")
-                
-        st.success("Clarity restored. The system serves you, not the other way around.")
-        st.session_state.fair_history.append("Completed 60s sovereign grounding reset.")
+                existing_csv = "timestamp_utc,name,email,suburb,role,notes\n"
+                sha = None
+                if resp.status_code == 200:
+                    payload = resp.json()
+                    sha = payload["sha"]
+                    existing_csv = base64.b64decode(payload["content"]).decode("utf-8")
 
-with tab4:
-    st.header("⚙️ Stress-Test Logs & Telemetry Audit Trail")
-    st.markdown("Keep a clean, chronological record of translated texts, stress-test parameters, and critical decisions.")
-    
-    with st.form("fair_manual_log"):
-        custom_log = st.text_input("Add manual telemetry or stress-test log entry:")
-        if st.form_submit_button("Add to Audit Log") and custom_log:
-            st.session_state.fair_history.append(custom_log)
-            st.success("Log entry recorded.")
-            
-    if st.session_state.fair_history:
-        for idx, entry in enumerate(st.session_state.fair_history, 1):
-            st.write(f"{idx}. {entry}")
-            
-        df_logs = pd.DataFrame({"Fair Engine Audit Log": st.session_state.fair_history})
-        csv_data = df_logs.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Export Telemetry Log (CSV)", data=csv_data, file_name="fair_engine_telemetry.csv", mime="text/csv")
-    else:
-        st.info("No telemetry events logged yet today.")
+                buf = io.StringIO()
+                writer = csv.writer(buf)
+                writer.writerow([
+                    datetime.now(timezone.utc).isoformat(),
+                    name.strip(),
+                    email.strip(),
+                    suburb.strip(),
+                    role,
+                    notes.strip(),
+                ])
+                updated_csv = existing_csv + buf.getvalue()
 
-st.sidebar.markdown("---")
-st.sidebar.write("**System Status:** Fair Engine Sovereign Protection Active")
+                put_body = {
+                    "message": f"New Guardian Power inquiry from {name.strip()}",
+                    "content": base64.b64encode(updated_csv.encode("utf-8")).decode("utf-8"),
+                }
+                if sha:
+                    put_body["sha"] = sha
+
+                put_resp = requests.put(api_url, headers=headers, json=put_body, timeout=15)
+                if put_resp.status_code in (200, 201):
+                    st.success(f"Thanks {name}! Your details have been saved to Guardian Power.")
+                else:
+                    st.error(f"Could not save inquiry ({put_resp.status_code}). Please try again later.")
