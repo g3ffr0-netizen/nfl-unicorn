@@ -29,10 +29,12 @@ jobs:
 
       - name: Commit updated weights if changed
         run: |
-          git config user.name "Nilovea Calibration Bot"
-          git config user.email "actions@github.com"
-          git add racing_model_weights.json
-          if ! git diff --staged --quiet; then
-            git commit -m "Auto-recalibrate racing_model_weights.json"
-            git push
+          if [ -f racing_model_weights.json ]; then
+            git config user.name "Nilovea Calibration Bot"
+            git config user.email "actions@github.com"
+            git add racing_model_weights.json
+            if ! git diff --staged --quiet; then
+              git commit -m "Auto-recalibrate racing_model_weights.json"
+              git push
+            fi
           fi
