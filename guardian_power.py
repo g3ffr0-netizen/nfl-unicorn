@@ -41,26 +41,26 @@ with st.sidebar:
             "🏡 Home & Vision",
             "🛠️ Inventions & Architectures",
             "⚡ Direct-DC & Microgrid Estimator",
-            "💻 Dev Studio & Sonny Protocols",
+            "💻 Web & App Development Studio",
             "♿ NDIS & Independent Living",
             "🤝 Register Interest / Partner",
         ],
     )
     st.divider()
-    st.info("Showcasing community-scale microgrids, proprietary Direct-DC hardware, and resilient telemetry protocols.")
+    st.info("Showcasing community-scale microgrids, proprietary Direct-DC hardware, and custom web/app solutions.")
 
 # ---------------------------------------------------------
 # 1. HOME & VISION
 # ---------------------------------------------------------
 if section == "🏡 Home & Vision":
     st.title("⚡ Guardian Power")
-    st.subheader("Decentralized Direct-DC Energy, Resilient Microgrids & Telemetry Protocols")
+    st.subheader("Decentralized Direct-DC Energy, Resilient Microgrids & Custom Web/App Systems")
 
     st.markdown(
         """
         **Guardian Power** is an Australian clean-energy and systems engineering initiative focused on eliminating
         wasteful AC-DC conversion losses, hardening residential solar against extreme weather, and building
-        neighborhood-scale energy and assistive-tech independence.
+        custom web apps and telemetry tools for local businesses, co-ops, and independent living.
         """
     )
 
@@ -78,16 +78,16 @@ if section == "🏡 Home & Vision":
             "Australian hail and wind events without sacrificing daily sun-tracking yield."
         )
     with c3:
-        st.markdown("### 🏘️ Community & NDIS Ready")
+        st.markdown("### 💻 Custom Web Apps & Protocols")
         st.write(
-            "Modular hardware nodes and Sonny Protocol telemetry built to strict Australian safety standards "
-            "(AS/NZS 5139 & AS/NZS 3000) for neighborhood microgrids and critical-load homes."
+            "Rapid-deployment Python web applications, interactive calculators, and Sonny Protocol telemetry "
+            "built for local businesses, clubs, NDIS providers, and energy projects."
         )
 
     st.divider()
     st.info(
-        "👈 Explore **Inventions & Architectures**, test the **Direct-DC Estimator**, view the **Dev Studio & Sonny Protocols**, "
-        "see **NDIS & Independent Living** applications, or **Register Interest** in the sidebar."
+        "👈 Explore **Inventions & Architectures**, test the **Direct-DC Estimator**, check out the **Web & App Development Studio**, "
+        "see **NDIS & Independent Living** solutions, or **Register Interest** in the sidebar."
     )
 
 # ---------------------------------------------------------
@@ -197,41 +197,49 @@ elif section == "⚡ Direct-DC & Microgrid Estimator":
     m3.metric("Annual Value of Recovered Energy", f"${annual_extra_aud:,.0f} AUD/yr")
 
 # ---------------------------------------------------------
-# 4. DEVELOPER STUDIO & SONNY PROTOCOLS
+# 4. WEB & APP DEVELOPMENT STUDIO (WITH SONNY PROTOCOLS)
 # ---------------------------------------------------------
-elif section == "💻 Dev Studio & Sonny Protocols":
-    st.title("💻 Developer Studio & The Sonny Protocols")
-    st.caption("Modular telemetry, deterministic edge-control logic, and custom Python/Streamlit operational apps.")
+elif section == "💻 Web & App Development Studio":
+    st.title("💻 Website Development & Custom App Studio")
+    st.caption("Fast-turnaround custom websites, interactive web apps, and Sonny Protocol telemetry tools.")
 
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     with c1:
-        st.subheader("📡 The Sonny Protocols & Telemetry Suite")
+        st.subheader("🌐 Custom Websites & Portals")
         st.markdown(
             """
-            Lightweight, deterministic state-and-telemetry architecture built for real-time monitoring,
-            automated safety interlocks, and rapid operator visibility:
-            * **Edge-to-Dashboard Sync:** Low-overhead Python pipelines connecting local hardware sensors,
-              DC bus telemetry, and automated storm-protection triggers.
-            * **Modular Protocol Layers:** Adaptable state-machine and decision-engine framework proven across
-              live analytics deployments, ready for custom IoT, microgrid, and field-telemetry integration.
+            Clean, fast, cloud-hosted websites built without bloated subscriptions or slow turnaround times:
+            * **Rapid Deployment:** From concept to a live web address in rapid turnaround.
+            * **Built-In Lead Capture:** Direct inquiry forms, booking requests, and automated data logging.
+            * **Zero Server Maintenance:** Reliable cloud hosting with automatic SSL security.
             """
         )
     with c2:
-        st.subheader("🛠️ App Making & Department Collaboration")
+        st.subheader("📱 Interactive Web Apps & Tools")
         st.markdown(
             """
-            Partnering with internal app teams, R&D departments, and software developers to build:
-            * **Custom Operational Dashboards:** Rapid-deployment Python web apps for energy, fleet, and
-              live field telemetry.
-            * **API & Hardware Hooks:** Clean interfaces for third-party developers building on top of
-              Guardian Power nodes and Sonny Protocol feeds.
+            More than a static brochure—custom Python web applications tailored to your exact workflow:
+            * **Live Calculators & Quote Tools:** Interactive pricing, energy, or job estimators for customers.
+            * **Operations & Analytics Dashboards:** Real-time data viewers, CSV/spreadsheet processors, and
+              custom decision-support tools for local clubs, trades, and small businesses.
+            """
+        )
+    with c3:
+        st.subheader("📡 The Sonny Protocols & Telemetry")
+        st.markdown(
+            """
+            Modular state-and-telemetry architecture for hardware, IoT, and operational visibility:
+            * **Edge-to-Dashboard Sync:** Lightweight Python pipelines connecting local sensors, DC bus
+              telemetry, and automated safety triggers.
+            * **Department & Dev Hooks:** Clean interfaces for internal R&D teams and app makers building
+              on top of Guardian Power systems.
             """
         )
 
     st.divider()
     st.info(
-        "Are you an app developer, firmware engineer, or internal R&D department looking to collaborate? "
-        "Select **Register Interest / Partner** in the sidebar to connect."
+        "Need a website, an interactive calculator/dashboard for your business, or custom protocol integration? "
+        "Head to **Register Interest / Partner** in the sidebar and tell us what you want to build."
     )
 
 # ---------------------------------------------------------
@@ -276,7 +284,7 @@ elif section == "♿ NDIS & Independent Living":
 elif section == "🤝 Register Interest / Partner":
     st.title("🤝 Register Interest & Technical Partnerships")
     st.write(
-        "Interested in neighborhood microgrid participation, pilot hardware testing, app/protocol development, "
+        "Interested in a custom website or web app, neighborhood microgrid participation, pilot hardware testing, "
         "or NDIS/SDA resilient energy solutions? Leave your details below."
     )
 
@@ -287,6 +295,7 @@ elif section == "🤝 Register Interest / Partner":
         role = st.selectbox(
             "I am reaching out as a...",
             [
+                "Business / Club needing a Website or Custom Web App",
                 "Local Resident / Future Co-op Member",
                 "App Developer / Software or R&D Department",
                 "NDIS Participant / SDA / SIL Provider",
@@ -296,7 +305,7 @@ elif section == "🤝 Register Interest / Partner":
                 "Other",
             ],
         )
-        notes = st.text_area("Tell us about your setup or how you'd like to collaborate")
+        notes = st.text_area("Tell us about your project, website/app idea, or setup")
         submitted = st.form_submit_button("Submit Inquiry")
 
     if submitted:
