@@ -12,12 +12,20 @@ st.set_page_config(
     layout="wide",
 )
 
-# Subtle dark clean-energy styling
+# High-contrast dark clean-energy theme styling
 st.markdown(
     """
     <style>
-    .stApp { background-color: #0B131E; color: #F0F4F8; }
-    section[data-testid="stSidebar"] { background-color: #131F2E; }
+    .stApp {
+        background-color: #0B131E;
+        color: #F0F4F8;
+    }
+    section[data-testid="stSidebar"] {
+        background-color: #131F2E;
+    }
+    section[data-testid="stSidebar"] * {
+        color: #F0F4F8 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -33,24 +41,26 @@ with st.sidebar:
             "🏡 Home & Vision",
             "🛠️ Inventions & Architectures",
             "⚡ Direct-DC & Microgrid Estimator",
+            "💻 Dev Studio & Sonny Protocols",
+            "♿ NDIS & Independent Living",
             "🤝 Register Interest / Partner",
         ],
     )
     st.divider()
-    st.info("Showcasing community-scale microgrid concepts and proprietary Direct-DC hardware architectures.")
+    st.info("Showcasing community-scale microgrids, proprietary Direct-DC hardware, and resilient telemetry protocols.")
 
 # ---------------------------------------------------------
 # 1. HOME & VISION
 # ---------------------------------------------------------
 if section == "🏡 Home & Vision":
     st.title("⚡ Guardian Power")
-    st.subheader("Decentralized Direct-DC Energy & Storm-Resilient Microgrid Hardware")
+    st.subheader("Decentralized Direct-DC Energy, Resilient Microgrids & Telemetry Protocols")
 
     st.markdown(
         """
-        **Guardian Power** is an Australian clean-energy engineering initiative focused on eliminating
-        wasteful AC-DC conversion losses, hardening residential solar against extreme weather, and
-        building neighborhood-scale energy independence.
+        **Guardian Power** is an Australian clean-energy and systems engineering initiative focused on eliminating
+        wasteful AC-DC conversion losses, hardening residential solar against extreme weather, and building
+        neighborhood-scale energy and assistive-tech independence.
         """
     )
 
@@ -68,14 +78,17 @@ if section == "🏡 Home & Vision":
             "Australian hail and wind events without sacrificing daily sun-tracking yield."
         )
     with c3:
-        st.markdown("### 🏘️ Community-Scale Ready")
+        st.markdown("### 🏘️ Community & NDIS Ready")
         st.write(
-            "Modular hardware nodes built to strict Australian safety standards (AS/NZS 5139 & AS/NZS 3000) "
-            "so neighbors can share clean generation and storage locally."
+            "Modular hardware nodes and Sonny Protocol telemetry built to strict Australian safety standards "
+            "(AS/NZS 5139 & AS/NZS 3000) for neighborhood microgrids and critical-load homes."
         )
 
     st.divider()
-    st.info("👈 Select **Inventions & Architectures**, **Direct-DC Estimator**, or **Register Interest** in the sidebar.")
+    st.info(
+        "👈 Explore **Inventions & Architectures**, test the **Direct-DC Estimator**, view the **Dev Studio & Sonny Protocols**, "
+        "see **NDIS & Independent Living** applications, or **Register Interest** in the sidebar."
+    )
 
 # ---------------------------------------------------------
 # 2. INVENTIONS & ARCHITECTURES
@@ -184,13 +197,87 @@ elif section == "⚡ Direct-DC & Microgrid Estimator":
     m3.metric("Annual Value of Recovered Energy", f"${annual_extra_aud:,.0f} AUD/yr")
 
 # ---------------------------------------------------------
-# 4. REGISTER INTEREST / PARTNER
+# 4. DEVELOPER STUDIO & SONNY PROTOCOLS
+# ---------------------------------------------------------
+elif section == "💻 Dev Studio & Sonny Protocols":
+    st.title("💻 Developer Studio & The Sonny Protocols")
+    st.caption("Modular telemetry, deterministic edge-control logic, and custom Python/Streamlit operational apps.")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("📡 The Sonny Protocols & Telemetry Suite")
+        st.markdown(
+            """
+            Lightweight, deterministic state-and-telemetry architecture built for real-time monitoring,
+            automated safety interlocks, and rapid operator visibility:
+            * **Edge-to-Dashboard Sync:** Low-overhead Python pipelines connecting local hardware sensors,
+              DC bus telemetry, and automated storm-protection triggers.
+            * **Modular Protocol Layers:** Adaptable state-machine and decision-engine framework proven across
+              live analytics deployments, ready for custom IoT, microgrid, and field-telemetry integration.
+            """
+        )
+    with c2:
+        st.subheader("🛠️ App Making & Department Collaboration")
+        st.markdown(
+            """
+            Partnering with internal app teams, R&D departments, and software developers to build:
+            * **Custom Operational Dashboards:** Rapid-deployment Python web apps for energy, fleet, and
+              live field telemetry.
+            * **API & Hardware Hooks:** Clean interfaces for third-party developers building on top of
+              Guardian Power nodes and Sonny Protocol feeds.
+            """
+        )
+
+    st.divider()
+    st.info(
+        "Are you an app developer, firmware engineer, or internal R&D department looking to collaborate? "
+        "Select **Register Interest / Partner** in the sidebar to connect."
+    )
+
+# ---------------------------------------------------------
+# 5. NDIS & INDEPENDENT LIVING
+# ---------------------------------------------------------
+elif section == "♿ NDIS & Independent Living":
+    st.title("♿ NDIS & Resilient Independent Living")
+    st.caption(
+        "NDIS-aligned & SDA-compatible Direct-DC backup power and smart telemetry concepts for "
+        "high-reliability home environments."
+    )
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("### 🔋 Critical Load Continuity")
+        st.write(
+            "Zero-interruption Direct-DC battery backup designed to keep powered mobility aids, "
+            "medical equipment, and essential climate control online through grid outages and severe storms."
+        )
+    with c2:
+        st.markdown("### 🏠 SDA & SIL Microgrid Ready")
+        st.write(
+            "Scalable solar, LFP storage, and heat-pump thermal loops tailored for Specialist Disability "
+            "Accommodation (SDA) and Supported Independent Living (SIL) homes to reduce 24/7 energy costs."
+        )
+    with c3:
+        st.markdown("### 📲 Accessible Telemetry & Alerts")
+        st.write(
+            "Powered by the Sonny Protocol stack to give participants, families, and support coordinators "
+            "clear, low-friction visibility over backup reserves and home safety systems."
+        )
+
+    st.divider()
+    st.info(
+        "Working with NDIS participants, SDA builders, or SIL providers in NSW? Reach out via "
+        "**Register Interest / Partner** to discuss pilot requirements and compatibility."
+    )
+
+# ---------------------------------------------------------
+# 6. REGISTER INTEREST / PARTNER
 # ---------------------------------------------------------
 elif section == "🤝 Register Interest / Partner":
     st.title("🤝 Register Interest & Technical Partnerships")
     st.write(
-        "Interested in neighborhood microgrid participation, pilot hardware testing, or engineering "
-        "collaboration with Guardian Power? Leave your details below."
+        "Interested in neighborhood microgrid participation, pilot hardware testing, app/protocol development, "
+        "or NDIS/SDA resilient energy solutions? Leave your details below."
     )
 
     with st.form("interest_form", clear_on_submit=True):
@@ -201,6 +288,8 @@ elif section == "🤝 Register Interest / Partner":
             "I am reaching out as a...",
             [
                 "Local Resident / Future Co-op Member",
+                "App Developer / Software or R&D Department",
+                "NDIS Participant / SDA / SIL Provider",
                 "Electrical / Structural / Clean-Tech Engineer",
                 "Manufacturer / Supplier",
                 "Investor / Community Grant Partner",
